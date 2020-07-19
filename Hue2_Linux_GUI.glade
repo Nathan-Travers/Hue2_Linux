@@ -63,10 +63,9 @@
                 <property name="can_focus">False</property>
                 <child>
                   <object class="GtkEntry" id="group_size">
-                    <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="input_purpose">number</property>
-                    <signal name="changed" handler="on_group_size_changed" swapped="no"/>
+                    <signal name="changed" handler="onGroupSizeChanged" swapped="no"/>
                   </object>
                   <packing>
                     <property name="x">120</property>
@@ -82,7 +81,7 @@
                     <property name="halign">start</property>
                     <property name="valign">center</property>
                     <property name="draw_indicator">True</property>
-                    <signal name="toggled" handler="on_grouping_checkbox_toggled" object="group_size" swapped="no"/>
+                    <signal name="toggled" handler="onGroupingCbToggled" swapped="no"/>
                   </object>
                   <packing>
                     <property name="y">155</property>
@@ -122,7 +121,7 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkButton">
+                  <object class="GtkButton" id="per_led_apply">
                     <property name="label" translatable="yes">Apply</property>
                     <property name="width_request">100</property>
                     <property name="height_request">55</property>
@@ -401,7 +400,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkListBox" id="preset_menu">
+                  <object class="GtkListBox" id="presets_menu">
                     <property name="width_request">400</property>
                     <property name="height_request">80</property>
                     <property name="visible">True</property>
@@ -469,7 +468,7 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkButton" id="apply_preset">
+                  <object class="GtkButton" id="presets_apply">
                     <property name="label" translatable="yes">Apply</property>
                     <property name="width_request">400</property>
                     <property name="visible">True</property>
