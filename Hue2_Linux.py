@@ -3,10 +3,6 @@ from os import system
 from subprocess import check_output
 from math import ceil
 import re
-def setLed(deviceno, channel, *colours, mode="fixed", speed="normal", direction="forward"):
-	system(f"liquidctl -d {deviceno} set {channel} color {mode} {' '.join(colours)}")
-
-
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -29,7 +25,11 @@ class Main:
 		grouping_cb = self.builder.get_object("grouping_checkbox")
 		grouping_cb.connect("clicked", self.onGroupingCbToggled)
 
+		presets = self.builder.get_object("presets_apply")
+		presets.connect("clicked", lambda _: self.onPresetsApply())
+
 		self.group_size = 1
+		self.speeds = ["slowest","slower","normal","faster","fastest"]
 
 		def per_led_apply():
 			colours = []
@@ -41,7 +41,7 @@ class Main:
 						colour += ("0"*(rgb_channel<10)+format(rgb_channel, "x"))
 				for _ in range(self.group_size):
 					colours.append(colour)
-			setLed(0, self.channel, *colours, mode="super-fixed")
+			self.setLed(*colours, mode="super-fixed")
 		per_led_apply_button = self.builder.get_object("per_led_apply")
 		per_led_apply_button.connect("clicked", lambda _: per_led_apply())
 
@@ -51,11 +51,16 @@ class Main:
 			self.devices = self.getHue2Devices()
 			for device in self.devices.keys():
 				device_list.append([device])
+			self.builder.get_object("grouping_checkbox").set_sensitive(0)
+			self.builder.get_object("breathing_checkbox").set_sensitive(0)
 		refresh_button = self.builder.get_object("refresh")
 		refresh_button.connect("clicked", lambda _: refresh_devices())
 
 		refresh_devices()
 
+
+	def setLed(self, *colours, mode="fixed", backwards=0):
+		system(f"liquidctl -m '{self.device}' set {self.channel} color {('backwards-'*backwards)+mode} --speed={self.speeds[int(self.builder.get_object('speed').get_value())-1]} {' '.join(colours)}")
 
 	def updateLedGrid(self):
 		self.led_grid = self.builder.get_object("led_grid")
@@ -82,15 +87,18 @@ class Main:
 		def updateChannels():
 			channel_list = self.builder.get_object("device_channel_liststore")
 			channel_list.clear()
-			device = combo_box.get_child().get_text()
+			self.device = combo_box.get_child().get_text()
 			try:
-				self.channels, self.channel = self.devices[device], "led1"
+				self.channels, self.channel = self.devices[self.device], "led1"
 				for channel in list(self.channels.keys()):
 					channel_list.append([channel])
 				self.updateLedGrid()
 			except KeyError:
 				pass
 		updateChannels()
+		self.builder.get_object("grouping_checkbox").set_sensitive(1)
+		self.builder.get_object("breathing_checkbox").set_sensitive(1)
+
 
 	def onGroupingCbToggled(self, cb):
 		group_size_entry = self.builder.get_object("group_size")
@@ -122,6 +130,10 @@ class Main:
 			self.updateLedGrid()
 		except ValueError:
 			group_size_entry.set_text("")
+
+	def onPresetsApply(self):
+		presets_menu = self.builder.get_object("presets_menu")
+		self.setLed("000000", mode=presets_menu.get_selected_row().get_children()[0].get_label().lower().replace(" ","-"), backwards=self.builder.get_object("presets_direction_b").get_active())
 
 	def getHue2Devices(self):
 		response, channel, devices, count = check_output("liquidctl initialize all", shell=1), "", {}, 0
