@@ -2,16 +2,17 @@
 <!-- Generated with glade 3.36.0 -->
 <interface>
   <requires lib="gtk+" version="3.22"/>
+  <object class="GtkListStore" id="device_channel_liststore">
+    <columns>
+      <!-- column-name channels -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <object class="GtkListStore" id="device_liststore">
     <columns>
       <!-- column-name devices -->
       <column type="gchararray"/>
     </columns>
-    <data>
-      <row>
-        <col id="0">--Select a device--</col>
-      </row>
-    </data>
   </object>
   <object class="GtkImage" id="image1">
     <property name="visible">True</property>
@@ -32,6 +33,11 @@
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="icon_name">arrow-right</property>
+  </object>
+  <object class="GtkImage" id="image5">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="icon_name">reload</property>
   </object>
   <object class="GtkAdjustment" id="speed">
     <property name="upper">5</property>
@@ -103,126 +109,31 @@
                     <property name="row_homogeneous">True</property>
                     <property name="column_homogeneous">True</property>
                     <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
+                      <object class="GtkColorButton">
+                        <property name="width_request">50</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">0</property>
+                      </packing>
                     </child>
                   </object>
+                </child>
+                <child>
+                  <object class="GtkButton">
+                    <property name="label" translatable="yes">Apply</property>
+                    <property name="width_request">100</property>
+                    <property name="height_request">55</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                  </object>
+                  <packing>
+                    <property name="x">295</property>
+                    <property name="y">155</property>
+                  </packing>
                 </child>
               </object>
               <packing>
@@ -231,7 +142,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkFixed" id="non_static">
+              <object class="GtkFixed" id="animations">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <child>
@@ -424,13 +335,13 @@
                 </child>
               </object>
               <packing>
-                <property name="name">Non-static</property>
-                <property name="title" translatable="yes">Non-static</property>
+                <property name="name">Animations</property>
+                <property name="title" translatable="yes">Animations</property>
                 <property name="position">1</property>
               </packing>
             </child>
             <child>
-              <object class="GtkFixed" id="presets">
+              <object class="GtkFixed" id="preset_animations">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <child>
@@ -572,14 +483,14 @@
                 </child>
               </object>
               <packing>
-                <property name="name">Presets</property>
-                <property name="title" translatable="yes">Presets</property>
+                <property name="name">Preset animations</property>
+                <property name="title" translatable="yes">Preset animations</property>
                 <property name="position">2</property>
               </packing>
             </child>
           </object>
           <packing>
-            <property name="x">105</property>
+            <property name="x">145</property>
             <property name="y">70</property>
           </packing>
         </child>
@@ -602,27 +513,50 @@
             <property name="width_request">100</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="model">device_channel_liststore</property>
             <property name="has_frame">False</property>
+            <property name="has_entry">True</property>
+            <property name="entry_text_column">0</property>
+            <signal name="changed" handler="onDeviceChannelChanged" swapped="no"/>
+            <child internal-child="entry">
+              <object class="GtkEntry" id="device_channel_entry">
+                <property name="can_focus">False</property>
+                <property name="placeholder_text" translatable="yes">-- Select a channel --</property>
+              </object>
+            </child>
           </object>
           <packing>
-            <property name="x">120</property>
+            <property name="x">245</property>
+            <property name="y">20</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="refresh">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <property name="image">image5</property>
+          </object>
+          <packing>
+            <property name="x">200</property>
             <property name="y">20</property>
           </packing>
         </child>
         <child>
           <object class="GtkComboBox" id="device">
             <property name="name">Device</property>
-            <property name="width_request">100</property>
+            <property name="width_request">190</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="model">device_liststore</property>
             <property name="has_frame">False</property>
             <property name="has_entry">True</property>
             <property name="entry_text_column">0</property>
-            <signal name="changed" handler="on_device_changed" object="device_liststore" swapped="no"/>
+            <signal name="changed" handler="onDeviceChanged" swapped="no"/>
             <child internal-child="entry">
-              <object class="GtkEntry">
+              <object class="GtkEntry" id="device_entry">
                 <property name="can_focus">False</property>
+                <property name="placeholder_text" translatable="yes">-- Select a device --</property>
               </object>
             </child>
           </object>
