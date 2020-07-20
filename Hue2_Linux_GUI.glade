@@ -148,7 +148,7 @@
                 <property name="can_focus">False</property>
                 <child>
                   <object class="GtkScale" id="speed_scale3">
-                    <property name="width_request">100</property>
+                    <property name="width_request">150</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="adjustment">speed</property>
@@ -157,7 +157,8 @@
                     <property name="value_pos">left</property>
                   </object>
                   <packing>
-                    <property name="y">160</property>
+                    <property name="x">20</property>
+                    <property name="y">185</property>
                   </packing>
                 </child>
                 <child>
@@ -198,19 +199,8 @@
                     </child>
                   </object>
                   <packing>
-                    <property name="x">120</property>
-                    <property name="y">155</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkListBox" id="custom_colours">
-                    <property name="width_request">400</property>
-                    <property name="height_request">80</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                  </object>
-                  <packing>
-                    <property name="y">30</property>
+                    <property name="x">215</property>
+                    <property name="y">180</property>
                   </packing>
                 </child>
                 <child>
@@ -219,18 +209,6 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="layout_style">expand</property>
-                    <child>
-                      <object class="GtkColorButton" id="colour_to_add">
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="receives_default">True</property>
-                      </object>
-                      <packing>
-                        <property name="expand">True</property>
-                        <property name="fill">True</property>
-                        <property name="position">0</property>
-                      </packing>
-                    </child>
                     <child>
                       <object class="GtkButton" id="add_colour">
                         <property name="label" translatable="yes">Add</property>
@@ -242,7 +220,7 @@
                       <packing>
                         <property name="expand">True</property>
                         <property name="fill">True</property>
-                        <property name="position">2</property>
+                        <property name="position">0</property>
                       </packing>
                     </child>
                     <child>
@@ -256,18 +234,32 @@
                       <packing>
                         <property name="expand">True</property>
                         <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkButton" id="animations_apply">
+                        <property name="label" translatable="yes">Apply</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">True</property>
+                      </object>
+                      <packing>
+                        <property name="expand">True</property>
+                        <property name="fill">True</property>
                         <property name="position">2</property>
                       </packing>
                     </child>
                   </object>
                   <packing>
-                    <property name="y">109</property>
+                    <property name="y">150</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkButtonBox" id="modes">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="homogeneous">True</property>
                     <property name="layout_style">start</property>
                     <child>
                       <object class="GtkRadioButton" id="radiobutton1">
@@ -275,6 +267,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
+                        <property name="margin_start">15</property>
                         <property name="active">True</property>
                         <property name="draw_indicator">True</property>
                         <signal name="toggled" handler="on_radiobutton1_toggled" object="lbl1" swapped="no"/>
@@ -291,7 +284,6 @@
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
-                        <property name="active">True</property>
                         <property name="draw_indicator">True</property>
                         <property name="group">radiobutton1</property>
                       </object>
@@ -303,11 +295,11 @@
                     </child>
                     <child>
                       <object class="GtkRadioButton">
-                        <property name="label" translatable="yes">Pulsing</property>
+                        <property name="label" translatable="yes">Marquee</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
-                        <property name="active">True</property>
+                        <property name="margin_start">5</property>
                         <property name="draw_indicator">True</property>
                         <property name="group">radiobutton1</property>
                       </object>
@@ -319,7 +311,7 @@
                     </child>
                     <child>
                       <object class="GtkRadioButton">
-                        <property name="label" translatable="yes">Marquee</property>
+                        <property name="label" translatable="yes">Pulse</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="receives_default">False</property>
@@ -334,6 +326,42 @@
                     </child>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkGrid" id="custom_colours">
+                    <property name="width_request">400</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="row_homogeneous">True</property>
+                    <property name="column_homogeneous">True</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="y">30</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="name">Animations</property>
@@ -347,7 +375,7 @@
                 <property name="can_focus">False</property>
                 <child>
                   <object class="GtkScale" id="presets_speed_scale">
-                    <property name="width_request">100</property>
+                    <property name="width_request">150</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="adjustment">speed</property>
@@ -356,6 +384,7 @@
                     <property name="value_pos">left</property>
                   </object>
                   <packing>
+                    <property name="x">20</property>
                     <property name="y">180</property>
                   </packing>
                 </child>
@@ -397,24 +426,38 @@
                     </child>
                   </object>
                   <packing>
-                    <property name="x">120</property>
+                    <property name="x">215</property>
                     <property name="y">175</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="presets_apply">
+                    <property name="label" translatable="yes">Apply</property>
+                    <property name="width_request">400</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <signal name="clicked" handler="onPresetsApply" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="y">140</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkListBox" id="presets_menu">
                     <property name="width_request">400</property>
-                    <property name="height_request">80</property>
+                    <property name="height_request">140</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
                       <object class="GtkListBoxRow">
                         <property name="width_request">100</property>
-                        <property name="height_request">30</property>
+                        <property name="height_request">35</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <child>
                           <object class="GtkLabel">
+                            <property name="height_request">31</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes">Spectrum wave</property>
@@ -430,6 +473,7 @@
                         <property name="can_focus">True</property>
                         <child>
                           <object class="GtkLabel">
+                            <property name="height_request">31</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes">Super rainbow</property>
@@ -445,6 +489,7 @@
                         <property name="can_focus">True</property>
                         <child>
                           <object class="GtkLabel">
+                            <property name="height_request">31</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes">Rainbow flow</property>
@@ -460,6 +505,7 @@
                         <property name="can_focus">True</property>
                         <child>
                           <object class="GtkLabel">
+                            <property name="height_request">31</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                             <property name="label" translatable="yes">Rainbow pulse</property>
@@ -468,19 +514,6 @@
                       </object>
                     </child>
                   </object>
-                </child>
-                <child>
-                  <object class="GtkButton" id="presets_apply">
-                    <property name="label" translatable="yes">Apply</property>
-                    <property name="width_request">400</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <signal name="clicked" handler="onPresetsApply" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="y">120</property>
-                  </packing>
                 </child>
               </object>
               <packing>
@@ -522,7 +555,7 @@
             <child internal-child="entry">
               <object class="GtkEntry" id="device_channel_entry">
                 <property name="can_focus">False</property>
-                <property name="placeholder_text" translatable="yes">-- Select a channel --</property>
+                <property name="placeholder_text" translatable="yes">- Channel -</property>
               </object>
             </child>
           </object>
