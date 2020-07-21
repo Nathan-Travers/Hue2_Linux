@@ -34,6 +34,7 @@ class Main:
 		self.buttons_to_disable = [self.per_led_page.grouping_cb, self.per_led_page.breathing_cb, self.per_led_page.apply, self.animations_page.apply, presets_apply]
 		self.speeds, self.mode = ["slowest","slower","normal","faster","fastest"], "super-fixed"
 		self.colours = {}
+		self.data={}
 
 		self.refreshDevices()
 		window.show()
@@ -58,6 +59,7 @@ class Main:
 					self.devices[device_name]["channels"][channel] += 10
 				elif length == 250:
 					self.devices[device_name]["channels"][channel] += 8
+			self.data[device_name] = {}
 
 	def setLed(self, *colours, backwards=0):
 		if backwards:
@@ -87,8 +89,11 @@ class Main:
 	def onDeviceChannelChange(self, combo_box):
 		try:
 			self.channel = combo_box.get_child().get_text()
-			self.per_led_page.channel_len = (self.per_led_page.channel_len[1], self.channels[self.channel])
+			self.per_led_page.channel_len = self.channels[self.channel]
+			self.per_led_page.led_len = (self.per_led_page.led_len[1], self.per_led_page.channel_len)
 			self.per_led_page.updateLedGrid()
+			self.data[self.device][self.channel] = {"animations":self.animations_page.getColours(),
+						"per_led":self.per_led_page.getColours()}
 		except KeyError:
 			pass
 
@@ -107,8 +112,12 @@ class Main:
 				self.channel=channel_names[0]
 				self.device_channel_entry.set_text(self.channel)
 			self.device = device
+			self.data[self.device][self.channel] = {"animations":self.animations_page.getColours(),
+						"per_led":self.per_led_page.getColours()}
 		updateChannels()
 
+		for btn in self.per_led_page.led_buttons:
+			btn.set_rgba(Gdk.RGBA(1,1,1,1))
 		for button in self.buttons_to_disable:
 			button.set_sensitive(1)
 		self.dcc = self.device_channel_combo_box.connect("changed", self.onDeviceChannelChange)
@@ -130,7 +139,7 @@ class Per_led(Main):
 		self.breathing_cb.connect("clicked", lambda cb: self.onBreathingCbToggled(top, cb))
 		self.apply.connect("clicked", lambda _: self.onApply(top))
 
-		self.group_size, self.channel_len = 1, (0,0)
+		self.group_size, self.led_len = 1, (0,0)
 		self.x, self.y = -1, 0
 		self.led_buttons = []
 
@@ -148,7 +157,7 @@ class Per_led(Main):
 		if cb.get_active()==0:
 			group_size_entry.set_visible(0)
 			group_size_entry.disconnect(self.group_size_handler_id)
-			self.group_size=1
+			#self.group_size=1
 		else:
 			group_size_entry.set_visible(1)
 			self.group_size_handler_id = group_size_entry.connect("changed", self.onGroupSizeChanged)
@@ -156,7 +165,6 @@ class Per_led(Main):
 				top.group_size = int(group_size_entry.get_text())
 			except ValueError:
 				pass
-		self.updateLedGrid()
 
 	def onGroupSizeChanged(self, group_size_entry):
 		group_size, buffer = group_size_entry.get_text(), ""
@@ -165,28 +173,29 @@ class Per_led(Main):
 				buffer += letter
 		try:
 			buffer_int = int(buffer)
-			if buffer_int > self.channel_len[1]:
-				buffer = str(self.channel_len[1])
+			if buffer_int > self.channel_len:
+				buffer = str(self.channel_len)
 			elif len(buffer)>2:
 				buffer = buffer[:2]
 			elif buffer_int!=0:
 				self.group_size = buffer_int
+				self.led_len = (self.led_len[1], ceil(self.channel_len//buffer_int))
+				self.updateLedGrid()
 		except ValueError:
 			pass
 		group_size_entry.set_text(buffer)
-#		clearLEDGRID
-		self.updateLedGrid()
 
 	def updateLedGrid(self):
-		if self.channel_len[1]<self.channel_len[0]:
-			for button in self.led_buttons[:self.channel_len[1]-1:-1]:
+		if self.led_len[1]<self.led_len[0]:
+			for button in self.led_buttons[:self.led_len[1]-1:-1]:
 				button.destroy()
+				del self.led_buttons[-1]
 				self.x-=1
 				if self.x==-1:
 					self.y-=1
 					self.x=7
-		elif self.channel_len[1]>self.channel_len[0]:
-			for led in range(ceil((self.channel_len[1]-self.channel_len[0])/self.group_size)):
+		elif self.led_len[1]>self.led_len[0]:
+			for led in range(self.led_len[1]-self.led_len[0]):
 				self.led_buttons.append(Gtk.ColorButton())
 				self.x+=1
 				if self.x==8:
@@ -280,7 +289,6 @@ class Animations(Main):
 					rgb_channel = int(rgb_channel*255)
 					colour.append(rgb_channel)
 			colours.append(colour)
-		print(colours)
 		return(colours)
 	def onApply(self, top):
 		length = int(top.builder.get_object('length').get_value())
@@ -322,7 +330,7 @@ class Profiles(Main):
 
 		self.save_btn.connect("clicked", lambda _: self.save(top))
 		self.load_btn.connect("clicked", lambda _: self.load(top))
-#		self.remove_btn.connect("clicked", self.remove)
+		self.remove_btn.connect("clicked", lambda _: self.remove())
 		self.exit_btn.connect("clicked", lambda _: self.exit())
 		self.dialog_save_entry.connect("changed", self.sanitizeEntry)
 
@@ -333,14 +341,14 @@ class Profiles(Main):
 			self.lb.remove(child)
 		try:
 			with open("saved_configurations.json", "r") as f:
-				self.data = json.load(f)
-			for save_name in self.data.keys():
+				self.saves = json.load(f)
+			for save_name in self.saves.keys():
 				label = Gtk.Label()
 				label.set_text(save_name)
 				label.show()
 				self.lb.add(label)
 		except:
-			self.data={}
+			self.saves={}
 			pass
 
 	def sanitizeEntry(self, entry):
@@ -354,24 +362,27 @@ class Profiles(Main):
 		top.builder.get_object("save_dialog").show()
 		def save():
 			name = self.dialog_save_entry.get_text()
-			self.data[name] = {"animations":top.animations_page.getColours(),
-					"per_led":top.per_led_page.getColours()}
+			self.saves[name] = top.data
 			with open("saved_configurations.json", "w") as f:
-				json.dump(self.data, f)
+				json.dump(self.saves, f)
 			top.builder.get_object("save_dialog").hide()
 			self.refreshSaves()
 		self.dialog_save.connect("clicked", lambda _: save())
 
 	def load(self, top):
-		for item in self.data[self.lb.get_selected_row().get_child().get_text()].items():
+		for item in self.saves[self.lb.get_selected_row().get_child().get_text()].items():
 				page, colours = item
 				page = {"per_led":0,
 				"animations":1}.get(page)
 				top.pages[page].setColours(colours)
 	def remove(self):
-		pass
+		row=self.lb.get_selected_row()
+		del self.saves[row.get_child().get_text()]
+		self.lb.remove(row)
 
 	def exit(self):
+		with open("saved_configurations.json", "w") as f:
+			json.dump(self.saves, f)
 		self.window.hide()
 if __name__ == "__main__":
 	main = Main()
