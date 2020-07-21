@@ -7,6 +7,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 from gi.repository import Gdk
+from liquidctl import driver
 
 class Main:
 	def __init__(self):
@@ -39,25 +40,26 @@ class Main:
 		for line in response.decode("utf-8").split("\n"):
 			if "N" in line:
 				device = line.split(" (")[0]
-				self.devices[device] = {}
+				self.devices[device] = {"id":len(self.devices),
+							"channels":{}}
 			try:
 				channel = re.search("LED \d", line).group(0).replace("LED ", "led")
-				if channel not in self.devices[device]:
-					self.devices[device][channel] = 0
+				if channel not in self.devices[device]["channels"]:
+					self.devices[device]["channels"][channel] = 0
 
 				length = int(re.search("\d{3}", line).group(0))
 				if length == 300:
 					count += 10
 				elif length == 250:
 					count += 8
-				self.devices[device][channel] = self.devices[device][channel] + count
+				self.devices[device]["channels"][channel] = self.devices[device]["channels"][channel] + count
 				count = 0
 			except AttributeError:
 				pass
 
 	def setLed(self, *colours, backwards=0):
-		system(f"liquidctl -m '{self.device}' set {self.channel} color {('backwards-'*backwards)+self.mode} --speed={self.speeds[int(self.builder.get_object('speed').get_value())-1]} {' '.join(colours)}")
-		print(f"liquidctl -m '{self.device}' set {self.channel} color {('backwards-'*backwards)+self.mode} --speed={self.speeds[int(self.builder.get_object('speed').get_value())-1]} {' '.join(colours)}")
+		system(f"liquidctl -d '{self.deviceno}' set {self.channel} color {('backwards-'*backwards)+self.mode} --speed={self.speeds[int(self.builder.get_object('speed').get_value())-1]} {' '.join(colours)}")
+		print(f"liquidctl -d '{self.deviceno}' set {self.channel} color {('backwards-'*backwards)+self.mode} --speed={self.speeds[int(self.builder.get_object('speed').get_value())-1]} {' '.join(colours)}")
 
 	def refreshDevices(self):
 		device_list = self.builder.get_object("device_liststore")
@@ -89,16 +91,15 @@ class Main:
 			device_channel_list = self.builder.get_object("device_channel_liststore")
 			device_channel_list.clear()
 
-			self.device = combo_box.get_child().get_text()
-			try:
-				self.channels = self.devices[self.device]
+			device = combo_box.get_child().get_text()
+			if device!="": #when function ran by refreshing devices, no chosen device
+				self.channels = self.devices[device]["channels"]
 				channel_names = list(self.channels.keys())
 				for channel in channel_names:
 					device_channel_list.append([channel])
 				self.channel=channel_names[0]
 				self.device_channel_entry.set_text(self.channel)
-			except KeyError:
-				pass
+				self.deviceno = self.devices[device]["id"]
 		updateChannels()
 		self.per_led_page.updateLedGrid()
 
@@ -124,9 +125,12 @@ class Per_led(Main):
 		self.group_size, self.channel_len = 1, 0
 
 	def onBreathingCbToggled(self, top, cb):
+		breathing_speed_scale = top.builder.get_object("breathing_speed_scale")
 		if cb.get_active() == 1:
 			top.mode = "super-breathing"
+			breathing_speed_scale.set_visible(1)
 		else:
+			breathing_speed_scale.set_visible(0)
 			top.mode = "super-fixed"
 
 	def onGroupingCbToggled(self, top, cb):
