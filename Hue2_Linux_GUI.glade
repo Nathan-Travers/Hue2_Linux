@@ -74,6 +74,7 @@
                 <child>
                   <object class="GtkEntry" id="group_size">
                     <property name="can_focus">True</property>
+                    <property name="tooltip_text" translatable="yes">Led group size</property>
                     <property name="input_purpose">number</property>
                     <signal name="changed" handler="onGroupSizeChanged" swapped="no"/>
                   </object>
@@ -189,7 +190,6 @@
                 <child>
                   <object class="GtkButtonBox" id="animations_directions">
                     <property name="width_request">100</property>
-                    <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="layout_style">start</property>
                     <child>

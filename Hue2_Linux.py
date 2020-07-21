@@ -1,13 +1,10 @@
 #!/bin/python
-from os import system
-from subprocess import check_output
-from math import ceil
-import re
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 from gi.repository import Gdk
 from liquidctl import driver
+from math import ceil
 
 class Main:
 	def __init__(self):
@@ -36,30 +33,31 @@ class Main:
 		window.show()
 
 	def getHue2Devices(self):
-		response, channel, self.devices, count = check_output("liquidctl initialize all", shell=1), "", {}, 0
-		for line in response.decode("utf-8").split("\n"):
-			if "N" in line:
-				device = line.split(" (")[0]
-				self.devices[device] = {"id":len(self.devices),
-							"channels":{}}
-			try:
-				channel = re.search("LED \d", line).group(0).replace("LED ", "led")
-				if channel not in self.devices[device]["channels"]:
-					self.devices[device]["channels"][channel] = 0
-
-				length = int(re.search("\d{3}", line).group(0))
+		self.devices={}
+		for device in driver.find_liquidctl_devices():
+			device.connect()
+			device_info = device.initialize()
+			device_name = device.description.replace(" (experimental)", "")
+			self.devices[device_name] = {"device": device,
+							"version": device_info[0][1],
+							"channels": {}}
+			for line in device_info[1:]:
+				channel = line[0][:5].lower().replace(" ","")
+				if channel not in self.devices[device_name]["channels"]:
+					self.devices[device_name]["channels"][channel] = 0
+				length = int(line[1][-6:-3])
 				if length == 300:
-					count += 10
+					self.devices[device_name]["channels"][channel] += 10
 				elif length == 250:
-					count += 8
-				self.devices[device]["channels"][channel] = self.devices[device]["channels"][channel] + count
-				count = 0
-			except AttributeError:
-				pass
+					self.devices[device_name]["channels"][channel] += 8
 
 	def setLed(self, *colours, backwards=0):
-		system(f"liquidctl -d '{self.deviceno}' set {self.channel} color {('backwards-'*backwards)+self.mode} --speed={self.speeds[int(self.builder.get_object('speed').get_value())-1]} {' '.join(colours)}")
-		print(f"liquidctl -d '{self.deviceno}' set {self.channel} color {('backwards-'*backwards)+self.mode} --speed={self.speeds[int(self.builder.get_object('speed').get_value())-1]} {' '.join(colours)}")
+		if backwards:
+			if self.mode!="covering-marquee":
+				self.mode = "backwards-"+self.mode
+			else:
+				self.mode = "covering-backwards-marquee" #the only mode that doesn't prefix "backwards-"
+		self.devices[self.device]["device"].set_color(self.channel,self.mode, colours)
 
 	def refreshDevices(self):
 		device_list = self.builder.get_object("device_liststore")
@@ -99,7 +97,7 @@ class Main:
 					device_channel_list.append([channel])
 				self.channel=channel_names[0]
 				self.device_channel_entry.set_text(self.channel)
-				self.deviceno = self.devices[device]["id"]
+			self.device = device
 		updateChannels()
 		self.per_led_page.updateLedGrid()
 
@@ -109,7 +107,7 @@ class Main:
 	def onPresetsApply(self):
 		presets_menu = self.builder.get_object("presets_menu")
 		self.mode = presets_menu.get_selected_row().get_children()[0].get_label().lower().replace(" ","-")
-		self.setLed("", backwards=self.builder.get_object("presets_direction_b").get_active())
+		self.setLed([0,0,0], backwards=self.builder.get_object("presets_direction_b").get_active()) #have to pass empty colours due to error in library coding
 
 class Per_led(Main):
 	def __init__(self, top):
@@ -176,39 +174,45 @@ class Per_led(Main):
 			if x==8:
 				y+=1
 				x=0
+			self.led_buttons[-1].set_rgba(Gdk.RGBA(1,1,1,1))
 			self.led_grid.attach(self.led_buttons[-1],x,y,1,1)
 			self.led_buttons[-1].show()
 
-	def onApply(self, top):
+	def getColours(self, top):
 		colours = []
 		for button in self.led_buttons:
-			colour = ""
+			colour = []
 			for ind, rgb_channel in enumerate(button.get_rgba()):
 				if ind !=3:
 					rgb_channel = int(rgb_channel*255)
-					colour += ("0"*(rgb_channel<10)+format(rgb_channel, "x"))
+					colour.append(rgb_channel)
 			for _ in range(self.group_size):
 				colours.append(colour)
-		top.setLed(*colours)
+		if "super" not in top.mode: 
+			top.mode="super-fixed"
+		return(colours)
 
+	def onApply(self, top):
+		top.setLed(*self.getColours(top))
 
 class Animations(Main):
 	def __init__(self, top):
 		remove_colour = top.builder.get_object("remove_colour")
 		self.add_colour = top.builder.get_object("add_colour")
 		self.apply = top.builder.get_object("animations_apply")
-		self.custom_colours = top.builder.get_object("custom_colours")
 		self.marquee_rb = top.builder.get_object("marquee_rb")
+		self.custom_colours = top.builder.get_object("custom_colours")
 
 		remove_colour.connect("clicked", self.onRemoveColour)
-		self.add_colour.connect("clicked", lambda _: self.onAddColour(remove_colour))
+		self.add_colour.connect("clicked", lambda btn: self.onAddColour(btn, remove_colour))
 		self.apply.connect("clicked", lambda _: self.onApply(top))
-		self.marquee_rb.connect("clicked", lambda btn: self.toggleLengthScale(top, btn))
+		self.marquee_rb.connect("clicked", lambda btn: self.onMarqueeSelected(top, btn))
 
-		self.custom_colours.x, self.custom_colours.y, self.custom_colour_buttons = 0, 0, []
+		self.custom_colours.x, self.custom_colours.y, self.custom_colours.buttons = 0, 0, []
 
 	def onRemoveColour(self, btn):
 		child = ""
+		self.add_colour.set_sensitive(1)
 		if self.custom_colours.x==2:
 			self.custom_colours.x, self.custom_colours.y = 1,4
 		if self.custom_colours.y==0 and self.custom_colours.x==1: #y before x for lazy evaluation
@@ -217,47 +221,54 @@ class Animations(Main):
 		else:
 			child = self.custom_colours.get_child_at(self.custom_colours.x, self.custom_colours.y-1)
 			self.custom_colours.y-=1
-		del self.custom_colour_buttons[-1]
+		del self.custom_colours.buttons[-1]
 		child.destroy()
 
-		if len(self.custom_colour_buttons)==0:
+		if len(self.custom_colours.buttons)==0:
 			btn.set_sensitive(0)
 
-	def onAddColour(self, btn):
+	def onAddColour(self, btn_self, btn):
 		if self.custom_colours.x!=2:
-			self.custom_colour_buttons.append(Gtk.ColorButton())
-			self.custom_colours.attach(self.custom_colour_buttons[-1],self.custom_colours.x,self.custom_colours.y,1,1)
-			self.custom_colour_buttons[-1].show()
+			self.custom_colours.buttons.append(Gtk.ColorButton())
+			self.custom_colours.attach(self.custom_colours.buttons[-1],self.custom_colours.x,self.custom_colours.y,1,1)
+			self.custom_colours.buttons[-1].show()
 			self.custom_colours.y+=1
 			if self.custom_colours.y==4:
 				self.custom_colours.y=0
 				self.custom_colours.x+=1
 			btn.set_sensitive(1)
+		else:
+			btn_self.set_sensitive(0)
 
-	def toggleLengthScale(self, top, btn):
+	def onMarqueeSelected(self, top, btn):
 		length_scale = top.builder.get_object("length_scale")
 		length_scale.set_visible(btn.get_active())
+		top.builder.get_object("animations_directions").set_visible(btn.get_active())
 
-	def onApply(self, top):
-		length=int(top.builder.get_object('length').get_value())
+	def getColours(self, top):
 		for radio_button in top.builder.get_object("animations_mode_rb").get_group():
 			if radio_button.get_active()==1:
 				top.mode = radio_button.get_label().lower()
 				break
-		if top.mode=="marquee":
-			if len(self.custom_colour_buttons)<2:
-				top.mode=f"marquee-{length}"
-			else:
-				top.mode=f"covering-marquee"
 		colours = []
-		for button in self.custom_colour_buttons:
-			colour = ""
+		for button in self.custom_colours.buttons:
+			colour = []
 			for ind, rgb_channel in enumerate(button.get_rgba()):
 				if ind !=3:
 					rgb_channel = int(rgb_channel*255)
-					colour += ("0"*(rgb_channel<10)+format(rgb_channel, "x"))
+					colour.append(rgb_channel)
 			colours.append(colour)
-		top.setLed(*colours)
+		return(colours)
+	def onApply(self, top):
+		length = int(top.builder.get_object('length').get_value())
+		colours, backwards = self.getColours(top), 0
+		if top.mode=="marquee":
+			backwards = top.builder.get_object("animations_direction_b").get_active()
+			if len(self.custom_colours.buttons)<2:
+				top.mode=f"marquee-{length}"
+			else:
+				top.mode=f"covering-marquee"
+		top.setLed(*colours, backwards=backwards)
 
 if __name__ == "__main__":
 	main = Main()
