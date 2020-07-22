@@ -93,7 +93,6 @@ class Main:
 		for colour in colours:
 			for _ in range(self.per_led_page.group_size):
 				true_colours.append(colour)
-		print(len(true_colours), true_colours)
 		self.devices[self.device]["device"].set_color(self.channel, self.mode, true_colours, speed=self.speeds[int(self.speed.get_value())-1])
 	def refreshDevices(self):
 		device_list = self.builder.get_object("device_liststore")
@@ -111,6 +110,8 @@ class Main:
 		self.getHue2Devices()
 		for device in self.devices.keys():
 			device_list.append([device])
+		self.device=device_list[0][0]
+		self.channel = list(self.devices[device]["channels"].keys())[0]
 
 	def onDeviceChannelChange(self, combo_box):
 		self.saveDeviceState()
@@ -127,6 +128,7 @@ class Main:
 
 	def onDeviceChange(self, combo_box):
 		self.device_channel_combo_box.disconnect(self.dcc)
+		self.saveDeviceState()
 		def updateChannels():
 			device_channel_list = self.builder.get_object("device_channel_liststore")
 			device_channel_list.clear()
@@ -140,6 +142,7 @@ class Main:
 				self.channel=channel_names[0]
 				self.device_channel_entry.set_text(self.channel)
 			self.device = device
+			self.updatePage()
 		updateChannels()
 
 		for btn in self.per_led_page.led_buttons:
@@ -269,15 +272,15 @@ class Animations(Main):
 		self.apply = top.builder.get_object("animations_apply")
 		self.marquee_rb = top.builder.get_object("marquee_rb")
 		self.custom_colours = top.builder.get_object("custom_colours")
-		self.backwards_button = top.builder.get_object("animations_direction_b")
-
+		self.backwards_btn = top.builder.get_object("animations_direction_b")
+		self.length_scale = top.builder.get_object("length_scale")
 		remove_colour.connect("clicked", self.onRemove)
 		self.add_colour.connect("clicked", lambda btn: self.onAdd(btn, remove_colour))
 		self.apply.connect("clicked", lambda _: self.onApply(top))
 		self.marquee_rb.connect("clicked", lambda btn: self.onMarqueeSelect(top, btn))
 
 		self.custom_colours.x, self.custom_colours.y, self.custom_colours.buttons = 0, 0, []
-		self.radio_buttons = top.builder.get_object("animations_mode_rb").get_group()
+		self.radio_buttons = top.builder.get_object("animations_mode_rb").get_group()[::-1]
 		self.name = "animations"
 
 	def removeColour(self):
@@ -315,12 +318,12 @@ class Animations(Main):
 		self.addColour()
 
 	def onMarqueeSelect(self, top, btn):
-		length_scale = top.builder.get_object("length_scale")
-		length_scale.set_visible(btn.get_active())
+		self.length_scale.set_visible(btn.get_active())
 		top.builder.get_object("animations_directions").set_visible(btn.get_active())
 
 	def getOpts(self):
-		backwards, length = 0, 0
+		backwards= 0
+		length = int(self.length_scale.get_value())
 		for radio_button in self.radio_buttons:
 			if radio_button.get_active()==1:
 				mode = radio_button.get_label().lower()
@@ -336,7 +339,6 @@ class Animations(Main):
 					mode = "backwards-"+mode
 				else:
 					mode = "covering-backwards-marquee" #the only mode that doesn't prefix "backwards-"
-			length = int(top.builder.get_object('length').get_value())
 		return(mode, length, backwards)
 
 	def getColours(self):
@@ -367,8 +369,12 @@ class Animations(Main):
 			button.set_rgba(Gdk.RGBA(*colour_float))
 
 	def setOpts(self, top, mode, length, backwards):
-		top.mode = mode
+		for btn in self.radio_buttons:
+			if btn.get_label().lower() in mode:
+				btn.set_active(1)
+				break
 		top.builder.get_object("length").set_value(length)
+		self.backwards_btn.set_active(backwards)
 #top.builder.get_object
 class Profiles(Main):
 	def __init__(self, top):
@@ -386,7 +392,7 @@ class Profiles(Main):
 
 		self.save_btn.connect("clicked", lambda _: self.save(top))
 		self.load_btn.connect("clicked", lambda _: self.load(top))
-		self.remove_btn.connect("clicked", lambda _: self.remove())
+		self.remove_btn.connect("clicked", self.remove)
 		self.exit_btn.connect("clicked", lambda _: self.exit())
 		self.dialog_save_entry.connect("changed", self.sanitizeEntry)
 
@@ -398,15 +404,18 @@ class Profiles(Main):
 		try:
 			with open("saved_configurations.json", "r") as f:
 				self.saves = json.load(f)
+		except:
+			self.saves={}
+			pass
+		if len(self.saves)!=0:
 			for save_name in self.saves.keys():
 				label = Gtk.Label()
 				label.set_text(save_name)
 				label.show()
 				self.lb.add(label)
-		except:
-			self.saves={}
-			pass
-
+				self.remove_btn.set_sensitive(1)
+		else:
+			self.load_btn.set_sensitive(0)
 	def sanitizeEntry(self, entry):
 		pass
 		#for character in entry.get_text():
@@ -423,7 +432,10 @@ class Profiles(Main):
 				json.dump(self.saves, f)
 			top.builder.get_object("save_dialog").hide()
 			self.refreshSaves()
-		self.dialog_save.connect("clicked", lambda _: save())
+			self.dialog_save.disconnect(dialog_save_handler_id)
+			self.remove_btn.set_sensitive(1)
+			self.load_btn.set_sensitive(1)
+		dialog_save_handler_id = self.dialog_save.connect("clicked", lambda _: save())
 
 	def load(self, top):
 		save = self.saves[self.lb.get_selected_row().get_child().get_text()]
@@ -437,10 +449,16 @@ class Profiles(Main):
 #						channel_page_data = list(channel_data[page.name].values())
 #						page.setOpts(top, *channel_page_data[1:])
 #						page.setColours(channel_page_data[0])
-	def remove(self):
+	def remove(self, btn):
+		if len(self.saves)==1:
+			btn.set_sensitive(0)
+			self.load_btn.set_sensitive(0)
 		row=self.lb.get_selected_row()
-		del self.saves[row.get_child().get_text()]
+		if row==None:
+			row=self.lb.get_children()[-1]
 		self.lb.remove(row)
+		row = row.get_child().get_text()
+		del self.saves[row]
 
 	def exit(self):
 		with open("saved_configurations.json", "w") as f:
