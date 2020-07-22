@@ -50,7 +50,7 @@
   <object class="GtkAdjustment" id="speed">
     <property name="lower">1</property>
     <property name="upper">5</property>
-    <property name="value">1</property>
+    <property name="value">3</property>
     <property name="step_increment">1</property>
     <property name="page_increment">1</property>
   </object>
