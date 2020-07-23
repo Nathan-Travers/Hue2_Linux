@@ -26,22 +26,36 @@ class Main:
 		window.connect("delete-event", Gtk.main_quit)
 		device_combo_box.connect("changed", self.on_device_change)
 		refresh_button.connect("clicked", lambda _: self.refresh_devices())
+<<<<<<< HEAD
 
+=======
+		profiles.connect("clicked", _profiles_popup)
+		copy_channel_btn.connect("clicked", _copy_channel_popover)
+		self.device_channel_combo_box_handler_id = self.device_channel_combo_box.connect("changed", self.on_device_channel_change)
+>>>>>>> c6e497946602b9098dd1a393cee501345d8d3e63
 		def _profiles_popup(_):
 			self.save_device_state()
 			self.pages["profiles"].show()
 		def _copy_channel_popover(_):
 			self.pages["copy_menu"].show(self)
+<<<<<<< HEAD
 		profiles.connect("clicked", _profiles_popup)
 		copy_channel_btn.connect("clicked", _copy_channel_popover)
 
 		self.device_channel_combo_box_handler_id = self.device_channel_combo_box.connect("changed", self.on_device_channel_change)
+=======
+
+>>>>>>> c6e497946602b9098dd1a393cee501345d8d3e63
 		self.pages={"per_led": PerLed(self),
 			    "animations": Animations(self),
 			    "presets":Presets(self),
 			    "profiles":Profiles(self),
 			    "copy_menu":CopyPopover(self)}
+<<<<<<< HEAD
 		self.buttons_to_disable = [self.pages["per_led"].grouping_cb, self.pages["per_led"].breathing_cb, self.pages["per_led"].apply, self.pages["animations"].apply, self.pages["presets"].apply]
+=======
+		self.buttons_to_disable = [self.pages["per_led"].grouping_cb, self.pages["per_led"].breathing_cb, self.pages["per_led"].apply, self.pages["animations"].apply, presets_apply]
+>>>>>>> c6e497946602b9098dd1a393cee501345d8d3e63
 		self.speeds, self.mode = ["slowest","slower","normal","faster","fastest"], "super-fixed"
 
 		self.refresh_devices()
@@ -154,6 +168,7 @@ class Main:
 
 class Presets(Main):
 	def __init__(self, top):
+<<<<<<< HEAD
 		self._menu = top.builder.get_object("presets_menu")
 		self._backwards_btn = top.builder.get_object("presets_direction_b")
 		self.apply = top.builder.get_object("presets_apply")
@@ -163,6 +178,17 @@ class Presets(Main):
 	def _on_apply(self, top):
 		top.mode = self._menu.get_selected_row().get_children()[0].get_label().lower().replace(" ","-")
 		top.mode = ("backwards-"*self._backwards_btn.get_active())+top.mode
+=======
+		self._menu = self.builder.get_object("presets_menu")
+		self._backwards_btn = self.builder.get_object("presets_direction_b")
+		self._apply = self.builder.get_object("presets_apply")
+
+		self._apply.connect("clicked", lambda _: self.on_presets_apply())
+
+	def _on_apply(self, top):
+		top.mode = self.menu.get_selected_row().get_children()[0].get_label().lower().replace(" ","-")
+		top.mode = ("backwards-"*self.backwards_btn.get_active())+top.mode
+>>>>>>> c6e497946602b9098dd1a393cee501345d8d3e63
 		top.set_led([0,0,0]) #have to pass empty colours due to error in library coding
 
 class PerLed(Main):
@@ -401,6 +427,10 @@ class Profiles(Main):
 		self.load_btn.connect("clicked", lambda _: self.load(top))
 		self.remove_btn.connect("clicked", self.remove)
 		self.exit_btn.connect("clicked", lambda _: self.exit(top))
+<<<<<<< HEAD
+=======
+		self.dialog_save_entry.connect("changed", self.sanitize_entry)
+>>>>>>> c6e497946602b9098dd1a393cee501345d8d3e63
 
 		self.refresh_saves()
 
@@ -422,6 +452,13 @@ class Profiles(Main):
 				self.remove_btn.set_sensitive(1)
 		else:
 			self.load_btn.set_sensitive(0)
+<<<<<<< HEAD
+=======
+	def sanitize_entry(self, entry):
+		pass
+		#for character in entry.get_text():
+		#	if character in "\"\'"
+>>>>>>> c6e497946602b9098dd1a393cee501345d8d3e63
 	def show(self):
 		self.window.show()
 	def save(self, top):
