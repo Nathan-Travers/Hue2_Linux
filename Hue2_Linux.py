@@ -1,10 +1,11 @@
 #!/bin/python
-import gi, json
+import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
-from gi.repository import Gdk
+from gi.repository import Gtk, Gdk
 from liquidctl import driver
 from math import ceil
+from json import dump, load
+from copy import deepcopy
 
 class Main:
 	def __init__(self):
@@ -12,64 +13,53 @@ class Main:
 		self.builder.add_from_file("Hue2_Linux_GUI.glade")
 
 		window = self.builder.get_object("window")
+		refresh_button = self.builder.get_object("refresh")
+		profiles = self.builder.get_object("profiles_btn")
+		copy_channel_btn = self.builder.get_object("copy_channel")
 		device_combo_box = self.builder.get_object("device")
 		self.device_channel_combo_box = self.builder.get_object("device_channel")
 		self.device_channel_entry = self.builder.get_object("device_channel_entry")
-		refresh_button = self.builder.get_object("refresh")
-		presets_apply = self.builder.get_object("presets_apply")
-		profiles = self.builder.get_object("profiles_btn")
+		self.device_list = self.builder.get_object("device_liststore")
+		self.device_entry = self.builder.get_object("device_entry")
+		self.speed = self.builder.get_object("speed")
 
 		window.connect("delete-event", Gtk.main_quit)
-		device_combo_box.connect("changed", self.onDeviceChange)
-		refresh_button.connect("clicked", lambda _: self.refreshDevices())
-		presets_apply.connect("clicked", lambda _: self.onPresetsApply())
-		def profilesPopup(_):
-			self.saveDeviceState()
-			self.profiles.show()
-		profiles.connect("clicked", profilesPopup)
-		self.speed = self.builder.get_object("speed")
-		self.dcc = self.device_channel_combo_box.connect("changed", self.onDeviceChannelChange)
+		device_combo_box.connect("changed", self.on_device_change)
+		refresh_button.connect("clicked", lambda _: self.refresh_devices())
+		profiles.connect("clicked", _profiles_popup)
+		copy_channel_btn.connect("clicked", _copy_channel_popover)
+		self.device_channel_combo_box_handler_id = self.device_channel_combo_box.connect("changed", self.on_device_channel_change)
+		def _profiles_popup(_):
+			self.save_device_state()
+			self.pages["profiles"].show()
+		def _copy_channel_popover(_):
+			self.pages["copy_menu"].show(self)
 
-		self.animations_page = Animations(self)
-		self.per_led_page = Per_led(self)
-		self.profiles = Profiles(self)
-		self.pages=[self.per_led_page, self.animations_page]
-		self.buttons_to_disable = [self.per_led_page.grouping_cb, self.per_led_page.breathing_cb, self.per_led_page.apply, self.animations_page.apply, presets_apply]
+		self.pages={"per_led": PerLed(self),
+			    "animations": Animations(self),
+			    "presets":Presets(self),
+			    "profiles":Profiles(self),
+			    "copy_menu":CopyPopover(self)}
+		self.buttons_to_disable = [self.pages["per_led"].grouping_cb, self.pages["per_led"].breathing_cb, self.pages["per_led"].apply, self.pages["animations"].apply, presets_apply]
 		self.speeds, self.mode = ["slowest","slower","normal","faster","fastest"], "super-fixed"
-		self.colours = {}
-		self.data={}
 
-		self.refreshDevices()
-		for device, device_name in zip(self.devices.values(), self.devices.keys()):
-			for channel in device["channels"]:
-				self.data[device_name][channel] = {
-					"per_led": {
-						"colours":[],
-						"group_size":1,
-						"speed":3.0,
-						"breathing":0},
-					"animations": {
-						"colours":[],
-						"mode":"fading",
-						"length":3.0,
-						"backwards":0}}
+		self.refresh_devices()
 		window.show()
+	def save_device_state(self):
+		self.data[self.device][self.channel] = {"per_led": {
+			"colours":self.pages["per_led"].get_colours(),
+			"group_size":self.pages["per_led"].group_size,
+			"speed":self.speed.get_value(),
+			"breathing":(self.mode=="super-breathing")}}
 
-	def saveDeviceState(self):
-		self.data[self.device][self.channel] = {
-			"per_led": {
-				"colours":self.per_led_page.getColours(),
-				"group_size":self.per_led_page.group_size,
-				"speed":self.speed.get_value(),
-				"breathing":(self.mode=="super-breathing")}}
-		mode, length, backwards = self.animations_page.getOpts()
+		mode, length, backwards = self.pages["animations"].get_opts()
 		self.data[self.device][self.channel]["animations"] = {
-			"colours":self.animations_page.getColours(),
+			"colours":self.pages["animations"].get_colours(),
 			"mode":mode,
 			"length":length,
 			"backwards":backwards}
-	def getHue2Devices(self):
-		self.devices={}
+	def get_hue2_devices(self):
+		self.devices, self.data={}, {}
 		for device in driver.find_liquidctl_devices():
 			device.connect()
 			device_info = device.initialize()
@@ -87,48 +77,56 @@ class Main:
 				elif length == 250:
 					self.devices[device_name]["channels"][channel] += 8
 			self.data[device_name] = {}
+			for channel in self.devices[device_name]["channels"]:
+				self.data[device_name][channel] = {
+					"per_led": {
+						"colours":[],
+						"group_size":1,
+						"speed":3.0,
+						"breathing":0},
+					"animations": {
+						"colours":[],
+						"mode":"fading",
+						"length":3.0,
+						"backwards":0}}
 
-	def setLed(self, *colours, speed=2, backwards=0):
+	def set_led(self, *colours, speed=2, backwards=0, sync=0):
 		true_colours=[]
 		for colour in colours:
-			for _ in range(self.per_led_page.group_size):
+			for _ in range(self.pages["per_led"].group_size):
 				true_colours.append(colour)
-		self.devices[self.device]["device"].set_color(self.channel, self.mode, true_colours, speed=self.speeds[int(self.speed.get_value())-1])
-	def refreshDevices(self):
-		device_list = self.builder.get_object("device_liststore")
-		device_entry = self.builder.get_object("device_entry")
-
-		device_list.clear()
-		device_entry.set_text("")
+		speed=self.speeds[int(self.speed.get_value())-1]
+		if sync==0:
+			self.devices[self.device]["device"].set_color(self.channel, self.mode, true_colours, speed=speed)
+		else:
+			for channel in self.channels:
+				self.devices[self.device]["device"].set_color(channel, self.mode, true_colours, speed=speed)
+	def refresh_devices(self):
+		self.device_list.clear()
+		self.device_entry.set_text("")
 		self.device_channel_entry.set_text("")
 
 		for button in self.buttons_to_disable:
 			button.set_sensitive(0)
 		for row in range(5):
-			self.per_led_page.led_grid.remove_row(0)
+			self.pages["per_led"].led_grid.remove_row(0)
 
-		self.getHue2Devices()
+		self.get_hue2_devices()
 		for device in self.devices.keys():
-			device_list.append([device])
-		self.device=device_list[0][0]
+			self.device_list.append([device])
+		self.device=self.device_list[0][0]
 		self.channel = list(self.devices[device]["channels"].keys())[0]
-
-	def onDeviceChannelChange(self, combo_box):
-		self.saveDeviceState()
+	def on_device_channel_change(self, combo_box):
+		self.save_device_state()
 		self.channel = combo_box.get_child().get_text()
-		self.updatePage()
-	def updatePage(self):
+		self.update_page()
+	def update_page(self):
 		per_led_page_data, animations_page_data = (list(item.values()) for item in self.data[self.device][self.channel].values())
-		self.animations_page.setOpts(self, *animations_page_data[1:])
-		self.animations_page.setColours(animations_page_data[0])
-		self.per_led_page.channel_len = self.channels[self.channel]
-		self.per_led_page.setOpts(self, *per_led_page_data[1:])
-		self.per_led_page.updateLedGrid()
-		self.per_led_page.setColours(per_led_page_data[0])
-
-	def onDeviceChange(self, combo_box):
-		self.device_channel_combo_box.disconnect(self.dcc)
-		self.saveDeviceState()
+		self.pages["animations"].set_opts(self, *animations_page_data)
+		self.pages["per_led"].set_opts(self, *per_led_page_data)
+	def on_device_change(self, combo_box):
+		self.device_channel_combo_box.disconnect(self.device_channel_combo_box_handler_id)
+		self.save_device_state()
 		def updateChannels():
 			device_channel_list = self.builder.get_object("device_channel_liststore")
 			device_channel_list.clear()
@@ -142,23 +140,31 @@ class Main:
 				self.channel=channel_names[0]
 				self.device_channel_entry.set_text(self.channel)
 			self.device = device
-			self.updatePage()
+			self.update_page()
 		updateChannels()
 
-		for btn in self.per_led_page.led_buttons:
+		for btn in self.pages["per_led"].led_buttons:
 			btn.set_rgba(Gdk.RGBA(1,1,1,1))
 		for button in self.buttons_to_disable:
 			button.set_sensitive(1)
-		self.dcc = self.device_channel_combo_box.connect("changed", self.onDeviceChannelChange)
-		self.onDeviceChannelChange(self.device_channel_combo_box)
+		self.device_channel_combo_box_handler_id = self.device_channel_combo_box.connect("changed", self.on_device_channel_change)
+		self.on_device_channel_change(self.device_channel_combo_box)
 
-	def onPresetsApply(self):
-		presets_menu = self.builder.get_object("presets_menu")
-		self.mode = presets_menu.get_selected_row().get_children()[0].get_label().lower().replace(" ","-")
-		self.mode = ("backwards-"*self.builder.get_object("presets_direction_b").get_active())+self.mode
-		self.setLed([0,0,0]) #have to pass empty colours due to error in library coding
 
-class Per_led(Main):
+class Presets(Main):
+	def __init__(self, top):
+		self._menu = self.builder.get_object("presets_menu")
+		self._backwards_btn = self.builder.get_object("presets_direction_b")
+		self._apply = self.builder.get_object("presets_apply")
+
+		self._apply.connect("clicked", lambda _: self.on_presets_apply())
+
+	def _on_apply(self, top):
+		top.mode = self.menu.get_selected_row().get_children()[0].get_label().lower().replace(" ","-")
+		top.mode = ("backwards-"*self.backwards_btn.get_active())+top.mode
+		top.set_led([0,0,0]) #have to pass empty colours due to error in library coding
+
+class PerLed(Main):
 	def __init__(self, top):
 		self.grouping_cb = top.builder.get_object("grouping_checkbox")
 		self.breathing_cb = top.builder.get_object("breathing_checkbox")
@@ -167,39 +173,36 @@ class Per_led(Main):
 		self.breathing_speed_scale = top.builder.get_object("breathing_speed_scale")
 		self.group_size_entry = top.builder.get_object("group_size")
 
-		self.grouping_cb.connect("clicked", lambda cb: self.onGroupingCbToggle(top, cb))
-		self.breathing_cb.connect("clicked", lambda cb: self.onBreathingCbToggle(top, cb))
-		self.apply.connect("clicked", lambda _: self.onApply(top))
+		self.grouping_cb.connect("clicked", lambda cb: self.on_grouping_cb_toggle(top, cb))
+		self.breathing_cb.connect("clicked", lambda cb: self.on_breathing_cb_toggle(top, cb))
+		self.apply.connect("clicked", lambda _: self.on_apply(top))
 
 		self.group_size, self.led_len = 1, (0,0)
 		self.x, self.y = -1, 0
 		self.led_buttons = []
 		self.name = "per_led"
-
-	def onBreathingCbToggle(self, top, cb):
+	def on_breathing_cb_toggle(self, top, cb):
 		if cb.get_active() == 1:
 			top.mode = "super-breathing"
 			self.breathing_speed_scale.set_visible(1)
 		else:
 			self.breathing_speed_scale.set_visible(0)
 			top.mode = "super-fixed"
-
-	def onGroupingCbToggle(self, top, cb):
+	def on_grouping_cb_toggle(self, top, cb):
 		if cb.get_active()==0:
 			self.group_size_entry.set_visible(0)
 			self.group_size_entry.disconnect(self.group_size_handler_id)
 			self.group_size=1
-			self.updateLedGrid()
+			self.update_led_grid()
 		else:
 			self.group_size_entry.set_visible(1)
-			self.group_size_handler_id = self.group_size_entry.connect("changed", self.onGroupSizeChange)
+			self.group_size_handler_id = self.group_size_entry.connect("changed", self.on_group_size_change)
 			try:
 				self.group_size = int(self.group_size_entry.get_text())
-				self.updateLedGrid()
+				self.update_led_grid()
 			except ValueError:
 				pass
-
-	def onGroupSizeChange(self, group_size_entry):
+	def on_group_size_change(self, group_size_entry):
 		group_size, buffer = group_size_entry.get_text(), ""
 		for letter in group_size:
 			if letter in "0123456789":
@@ -212,12 +215,11 @@ class Per_led(Main):
 				buffer = buffer[:2]
 			elif buffer_int!=0:
 				self.group_size = buffer_int
-				self.updateLedGrid()
+				self.update_led_grid()
 		except ValueError:
 			pass
 		group_size_entry.set_text(buffer)
-
-	def updateLedGrid(self):
+	def update_led_grid(self):
 		self.led_len = (self.led_len[1], ceil(self.channel_len//self.group_size))
 		if self.led_len[1]<self.led_len[0]:
 			for button in self.led_buttons[:self.led_len[1]-1:-1]:
@@ -237,7 +239,7 @@ class Per_led(Main):
 				self.led_buttons[-1].set_rgba(Gdk.RGBA(1,1,1,1))
 				self.led_grid.attach(self.led_buttons[-1],self.x,self.y,1,1)
 				self.led_buttons[-1].show()
-	def getColours(self):
+	def get_colours(self):
 		colours = []
 		for button in self.led_buttons:
 			colour = []
@@ -247,43 +249,42 @@ class Per_led(Main):
 					colour.append(rgb_channel)
 			colours.append(colour)
 		return(colours)
-
-	def onApply(self, top):
+	def on_apply(self, top):
 		if "super" not in top.mode:
 			top.mode="super-fixed"
-		top.setLed(*self.getColours())
-
-	def setOpts(self, top, group_size, speed, breathing):
-		self.group_size_entry.set_text(str(group_size))
-		self.grouping_cb.set_active((group_size>1))
-		self.breathing_cb.set_active(breathing)
-		top.speed.set_value(speed)
-	def setColours(self, colours):
+		top.set_led(*self.get_colours())
+	def set_opts(self, top, colours, group_size, speed, breathing):
 		for button, colour in zip(self.led_buttons, colours):
 			colour_float=[]
 			for channel in colour:
 				colour_float.append(channel/255)
 			button.set_rgba(Gdk.RGBA(*colour_float))
+		self.channel_len = top.channels[top.channel]
+		self.update_led_grid()
+		self.group_size_entry.set_text(str(group_size))
+		self.grouping_cb.set_active((group_size>1))
+		self.breathing_cb.set_active(breathing)
+		top.speed.set_value(speed)
 
 class Animations(Main):
 	def __init__(self, top):
-		remove_colour = top.builder.get_object("remove_colour")
-		self.add_colour = top.builder.get_object("add_colour")
+		self.remove_colour_btn = top.builder.get_object("remove_colour")
+		self.add_colour_btn = top.builder.get_object("add_colour")
 		self.apply = top.builder.get_object("animations_apply")
 		self.marquee_rb = top.builder.get_object("marquee_rb")
 		self.custom_colours = top.builder.get_object("custom_colours")
 		self.backwards_btn = top.builder.get_object("animations_direction_b")
 		self.length_scale = top.builder.get_object("length_scale")
-		remove_colour.connect("clicked", self.onRemove)
-		self.add_colour.connect("clicked", lambda btn: self.onAdd(btn, remove_colour))
-		self.apply.connect("clicked", lambda _: self.onApply(top))
-		self.marquee_rb.connect("clicked", lambda btn: self.onMarqueeSelect(top, btn))
+
+		self.remove_colour_btn.connect("clicked", self.on_remove)
+		self.add_colour_btn.connect("clicked", lambda btn: self.on_add(btn, self.remove_colour))
+		self.apply.connect("clicked", lambda _: self.on_apply(top))
+		self.marquee_rb.connect("clicked", lambda btn: self.on_marquee_select(top, btn))
 
 		self.custom_colours.x, self.custom_colours.y, self.custom_colours.buttons = 0, 0, []
 		self.radio_buttons = top.builder.get_object("animations_mode_rb").get_group()[::-1]
 		self.name = "animations"
-
-	def removeColour(self):
+	def remove_colour(self):
 		child = ""
 		if self.custom_colours.x==2:
 			self.custom_colours.x, self.custom_colours.y = 1,4
@@ -295,13 +296,12 @@ class Animations(Main):
 			self.custom_colours.y-=1
 		del self.custom_colours.buttons[-1]
 		child.destroy()
-	def onRemove(self, btn):
-		self.add_colour.set_sensitive(1)
-		self.removeColour()
+	def on_remove(self, btn):
+		self.add_colour_btn.set_sensitive(1)
+		self.remove_colour()
 		if len(self.custom_colours.buttons)==0:
 			btn.set_sensitive(0)
-
-	def addColour(self):
+	def add_colour(self):
 		if self.custom_colours.x!=2:
 			self.custom_colours.buttons.append(Gtk.ColorButton())
 			self.custom_colours.attach(self.custom_colours.buttons[-1],self.custom_colours.x,self.custom_colours.y,1,1)
@@ -311,17 +311,15 @@ class Animations(Main):
 			if self.custom_colours.y==4:
 				self.custom_colours.y=0
 				self.custom_colours.x+=1
-	def onAdd(self, btn_self, btn):
+	def on_add(self, btn_self, btn):
 		btn.set_sensitive(1)
 		if self.custom_colours.x==2:
 			btn_self.set_sensitive(0)
-		self.addColour()
-
-	def onMarqueeSelect(self, top, btn):
+		self.add_colour()
+	def on_marquee_select(self, top, btn):
 		self.length_scale.set_visible(btn.get_active())
 		top.builder.get_object("animations_directions").set_visible(btn.get_active())
-
-	def getOpts(self):
+	def get_opts(self):
 		backwards= 0
 		length = int(self.length_scale.get_value())
 		for radio_button in self.radio_buttons:
@@ -340,8 +338,7 @@ class Animations(Main):
 				else:
 					mode = "covering-backwards-marquee" #the only mode that doesn't prefix "backwards-"
 		return(mode, length, backwards)
-
-	def getColours(self):
+	def get_colours(self):
 		colours = []
 		for button in self.custom_colours.buttons:
 			colour = []
@@ -351,24 +348,32 @@ class Animations(Main):
 					colour.append(rgb_channel)
 			colours.append(colour)
 		return(colours)
-	def onApply(self, top):
-		top.mode = self.getOpts()[0]
-		top.setLed(*self.getColours())
-
-	def setColours(self, colours):
-		if len(self.custom_colours.buttons)<len(colours):
-			for _ in range(len(colours)-len(self.custom_colours.buttons)):
-				self.addColour()
-		elif len(self.custom_colours.buttons)>len(colours):
-			for _ in range(len(self.custom_colours.buttons)-len(colours)):
-				self.removeColour()
-		for button, colour in zip(self.custom_colours.buttons, colours):
-			colour_float=[]
-			for channel in colour:
-				colour_float.append(channel/255)
-			button.set_rgba(Gdk.RGBA(*colour_float))
-
-	def setOpts(self, top, mode, length, backwards):
+	def on_apply(self, top):
+		top.mode = self.get_opts()[0]
+		top.set_led(*self.get_colours())
+	def set_opts(self, top, colours, mode, length, backwards):
+		def setColours():
+			buttons_len = len(self.custom_colours.buttons)
+			colours_len = len(colours)
+			if buttons_len<colours_len:
+				for _ in range(colours_len-buttons_len):
+					self.add_colour()
+			elif buttons_len>colours_len:
+				for _ in range(buttons_len-colours_len):
+					self.remove_colour()
+			buttons_len = len(self.custom_colours.buttons)
+			if buttons_len<1:
+				self.remove_colour_btn.set_sensitive(0)
+			else:
+				self.remove_colour_btn.set_sensitive(1)
+			if buttons_len==8:
+				self.add_colour_btn.set_sensitive(0)
+			for button, colour in zip(self.custom_colours.buttons, colours):
+				colour_float=[]
+				for channel in colour:
+					colour_float.append(channel/255)
+					button.set_rgba(Gdk.RGBA(*colour_float))
+		setColours()
 		for btn in self.radio_buttons:
 			if btn.get_label().lower() in mode:
 				btn.set_active(1)
@@ -376,6 +381,7 @@ class Animations(Main):
 		top.builder.get_object("length").set_value(length)
 		self.backwards_btn.set_active(backwards)
 #top.builder.get_object
+
 class Profiles(Main):
 	def __init__(self, top):
 		self.window = top.builder.get_object("profiles")
@@ -393,17 +399,17 @@ class Profiles(Main):
 		self.save_btn.connect("clicked", lambda _: self.save(top))
 		self.load_btn.connect("clicked", lambda _: self.load(top))
 		self.remove_btn.connect("clicked", self.remove)
-		self.exit_btn.connect("clicked", lambda _: self.exit())
-		self.dialog_save_entry.connect("changed", self.sanitizeEntry)
+		self.exit_btn.connect("clicked", lambda _: self.exit(top))
+		self.dialog_save_entry.connect("changed", self.sanitize_entry)
 
-		self.refreshSaves()
+		self.refresh_saves()
 
-	def refreshSaves(self):
+	def refresh_saves(self):
 		for child in self.lb.get_children():
 			self.lb.remove(child)
 		try:
 			with open("saved_configurations.json", "r") as f:
-				self.saves = json.load(f)
+				self.saves = load(f)
 		except:
 			self.saves={}
 			pass
@@ -416,54 +422,89 @@ class Profiles(Main):
 				self.remove_btn.set_sensitive(1)
 		else:
 			self.load_btn.set_sensitive(0)
-	def sanitizeEntry(self, entry):
+	def sanitize_entry(self, entry):
 		pass
 		#for character in entry.get_text():
 		#	if character in "\"\'"
 	def show(self):
 		self.window.show()
-
 	def save(self, top):
 		top.builder.get_object("save_dialog").show()
 		def save():
 			name = self.dialog_save_entry.get_text()
-			self.saves[name] = top.data
+			self.saves[name] = deepcopy(top.data)
 			with open("saved_configurations.json", "w") as f:
-				json.dump(self.saves, f)
+				dump(self.saves, f)
 			top.builder.get_object("save_dialog").hide()
-			self.refreshSaves()
+			self.refresh_saves()
 			self.dialog_save.disconnect(dialog_save_handler_id)
 			self.remove_btn.set_sensitive(1)
 			self.load_btn.set_sensitive(1)
 		dialog_save_handler_id = self.dialog_save.connect("clicked", lambda _: save())
-
+		row = self.lb.get_selected_row()
+		if row !=None:
+			self.dialog_save_entry.set_text(row.get_child().get_text())
+			self.dialog_save_entry.select_region(0,-1)
 	def load(self, top):
 		save = self.saves[self.lb.get_selected_row().get_child().get_text()]
-		top.data=save
-		top.updatePage()
-#		for device in save.values():
-#			for channel in device.keys():
-#				if channel == top.channel:
-#					channel_data = device[channel]
-#					for page in top.pages:
-#						channel_page_data = list(channel_data[page.name].values())
-#						page.setOpts(top, *channel_page_data[1:])
-#						page.setColours(channel_page_data[0])
+		top.data=deepcopy(save)
+		top.update_page()
 	def remove(self, btn):
-		if len(self.saves)==1:
+		row=self.lb.get_selected_row()
+		if row!=None:
+			self.lb.remove(row)
+			row = row.get_child().get_text()
+			del self.saves[row]
+		if len(self.saves)==0:
 			btn.set_sensitive(0)
 			self.load_btn.set_sensitive(0)
-		row=self.lb.get_selected_row()
-		if row==None:
-			row=self.lb.get_children()[-1]
-		self.lb.remove(row)
-		row = row.get_child().get_text()
-		del self.saves[row]
-
-	def exit(self):
+		else:
+			self.lb.select_row(self.lb.get_children()[-1])
+	def exit(self,top):
 		with open("saved_configurations.json", "w") as f:
-			json.dump(self.saves, f)
+			dump(self.saves, f)
 		self.window.hide()
+
+
+class CopyPopover(Main):
+	def __init__(self, top):
+		self.popover = top.builder.get_object("copy_popover")
+		self._lb = top.builder.get_object("copy_dialog_lb")
+		self._lb.handler_id = self._lb.connect("row-selected", lambda _, row: self._on_select(top, row))
+	def show(self, top):
+		def addRow(text):
+			label = Gtk.Label()
+			label.set_text(text)
+			label.show()
+			self._lb.add(label)
+		for child in self._lb.get_children():
+			self._lb.remove(child)
+		self.devices, pos = {}, -1
+		for device in top.data:
+			addRow(device)
+			pos+=1
+			self.devices[pos] = device
+			for channel in list(top.data[device].keys()):
+				addRow(channel)
+				pos+=1
+		self.devices[pos+1] = list(self.devices.values())[-1]
+	def _on_select(self, top, row):
+		if row!=None:
+			if row.get_child().get_text() in list(top.devices.keys()): #lazy evaluation stops AttributeError
+				self._lb.unselect_row(row)
+			else:
+				self._copy(top)
+				self.popover.hide()
+	def _copy(self, top):
+		selected_row = self._lb.get_selected_row()
+		for ind, pos in enumerate(self.devices.keys()):
+			if selected_row.get_index() < pos:
+				device = list(self.devices.values())[ind-1]
+				top.data[top.device][top.channel] = top.data[device][selected_row.get_child().get_text()]
+				break
+		top.update_page()
+
+
 if __name__ == "__main__":
 	main = Main()
 	Gtk.main()
