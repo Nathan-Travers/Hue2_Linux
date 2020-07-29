@@ -48,18 +48,6 @@ class Main:
 
 		self._refresh_devices()
 		window.show()
-	def _save_device_state(self):
-		mode, length, backwards = self.pages["animations"].get_opts()
-		self.data[self.device][self.channel] = {"per_led": {
-			"colours":self.pages["per_led"].get_colours(),
-			"group_size":self.pages["per_led"].group_size,
-			"speed":self.speed.get_value(),
-			"breathing":(self.mode=="super-breathing")},
-							"animations": {
-			"colours":self.pages["animations"].get_colours(),
-			"mode":mode,
-			"length":length,
-			"backwards":backwards}}
 	def _get_devices(self):
 		for device in driver.find_liquidctl_devices():
 			device.connect()
@@ -91,17 +79,6 @@ class Main:
 				elif length == 250:
 					device_channels[channel] += 8
 
-	def set_led(self, *colours, speed=2, backwards=0, sync=0):
-		_colours=[]
-		for colour in colours:
-			for _ in range(self.pages["per_led"].group_size):
-				_colours.append(colour)
-		speed=self._speeds[int(self.speed.get_value())-1]
-		if sync==0:
-			self.devices[self.device]["device"].set_color(self.channel, self.mode, _colours, speed=speed)
-		else:
-			for channel in self.channels:
-				self.devices[self.device]["device"].set_color(channel, self.mode, _colours, speed=speed)
 	def _refresh_devices(self):
 		self.devices, self.data={}, {}
 		self._device_list.clear()
@@ -118,14 +95,18 @@ class Main:
 			self._device_list.append([device])
 		self.device=self._device_list[0][0]
 		self.channel = list(self.devices[device]["channels"].keys())[0]
-	def _on_device_channel_change(self, combo_box):
-		self._save_device_state()
-		self.channel = combo_box.get_child().get_text()
-		self.update_page()
-	def update_page(self):
-		per_led_page_data, animations_page_data = (list(item.values()) for item in self.data[self.device][self.channel].values())
-		self.pages["animations"].set_opts(*animations_page_data)
-		self.pages["per_led"].set_opts(self, *per_led_page_data)
+	def _save_device_state(self):
+		mode, length, backwards = self.pages["animations"].get_opts()
+		self.data[self.device][self.channel] = {"per_led": {
+			"colours":self.pages["per_led"].get_colours(),
+			"group_size":self.pages["per_led"].group_size,
+			"speed":self.speed.get_value(),
+			"breathing":(self.mode=="super-breathing")},
+							"animations": {
+			"colours":self.pages["animations"].get_colours(),
+			"mode":mode,
+			"length":length,
+			"backwards":backwards}}
 	def _on_device_change(self, combo_box):
 		self._device_channel_combo_box.disconnect(self._device_channel_combo_box_handler_id)
 		self._save_device_state()
@@ -150,7 +131,25 @@ class Main:
 			button.set_sensitive(1)
 		self._device_channel_combo_box_handler_id = self._device_channel_combo_box.connect("changed", self._on_device_channel_change)
 		self._on_device_channel_change(self._device_channel_combo_box)
-
+	def _on_device_channel_change(self, combo_box):
+		self._save_device_state()
+		self.channel = combo_box.get_child().get_text()
+		self.update_page()
+	def update_page(self):
+		per_led_page_data, animations_page_data = (list(item.values()) for item in self.data[self.device][self.channel].values())
+		self.pages["animations"].set_opts(*animations_page_data)
+		self.pages["per_led"].set_opts(self, *per_led_page_data)
+	def set_led(self, *colours, speed=2, backwards=0, sync=0):
+		_colours=[]
+		for colour in colours:
+			for _ in range(self.pages["per_led"].group_size):
+				_colours.append(colour)
+		speed=self._speeds[int(self.speed.get_value())-1]
+		if sync==0:
+			self.devices[self.device]["device"].set_color(self.channel, self.mode, _colours, speed=speed)
+		else:
+			for channel in self.channels:
+				self.devices[self.device]["device"].set_color(channel, self.mode, _colours, speed=speed)
 
 class Presets(Main):
 	def __init__(self, top):
@@ -184,6 +183,26 @@ class PerLed(Main):
 		self._led_len = (0,0)
 		self._x = -1
 		self._y =  0
+	def _update_led_grid(self):
+		self._led_len = (self._led_len[1], ceil(self.channel_len/self.group_size))
+		if self._led_len[1]<self._led_len[0]:
+			for btn in self.led_buttons[:self._led_len[1]-1:-1]:
+				btn.destroy()
+				del self.led_buttons[-1]
+				self._x-=1
+				if self._x==-1:
+					self._y-=1
+					self._x=7
+		elif self._led_len[1]>self._led_len[0]:
+			for led in range(self._led_len[1]-self._led_len[0]):
+				self.led_buttons.append(Gtk.ColorButton())
+				self._x+=1
+				if self._x==8:
+					self._y+=1
+					self._x=0
+				self.led_buttons[-1].set_rgba(Gdk.RGBA(1,1,1,1))
+				self.led_grid.attach(self.led_buttons[-1],self._x,self._y,1,1)
+				self.led_buttons[-1].show()
 	def _on_breathing_cb_toggle(self, top, cb):
 		if cb.get_active() == 1:
 			top.mode = "super-breathing"
@@ -223,26 +242,10 @@ class PerLed(Main):
 		except ValueError:
 			pass
 		_group_size_entry.set_text(buffer)
-	def _update_led_grid(self):
-		self._led_len = (self._led_len[1], ceil(self.channel_len/self.group_size))
-		if self._led_len[1]<self._led_len[0]:
-			for btn in self.led_buttons[:self._led_len[1]-1:-1]:
-				btn.destroy()
-				del self.led_buttons[-1]
-				self._x-=1
-				if self._x==-1:
-					self._y-=1
-					self._x=7
-		elif self._led_len[1]>self._led_len[0]:
-			for led in range(self._led_len[1]-self._led_len[0]):
-				self.led_buttons.append(Gtk.ColorButton())
-				self._x+=1
-				if self._x==8:
-					self._y+=1
-					self._x=0
-				self.led_buttons[-1].set_rgba(Gdk.RGBA(1,1,1,1))
-				self.led_grid.attach(self.led_buttons[-1],self._x,self._y,1,1)
-				self.led_buttons[-1].show()
+	def _on_apply(self, top):
+		if "super" not in top.mode:
+			top.mode="super-fixed"
+		top.set_led(*self.get_colours())
 	def get_colours(self):
 		colours = []
 		for button in self.led_buttons:
@@ -252,10 +255,6 @@ class PerLed(Main):
 				colour.append(rgb_channel)
 			colours.append(colour)
 		return(colours)
-	def _on_apply(self, top):
-		if "super" not in top.mode:
-			top.mode="super-fixed"
-		top.set_led(*self.get_colours())
 	def set_opts(self, top, colours, group_size, speed, breathing):
 		for button, colour in zip(self.led_buttons, colours):
 			colour_float=[]
@@ -300,11 +299,6 @@ class Animations(Main):
 			self.custom_colours.y-=1
 		del self.custom_colours.buttons[-1]
 		child.destroy()
-	def _on_remove(self, btn):
-		self._add_colour_btn.set_sensitive(1)
-		self._remove_colour()
-		if len(self.custom_colours.buttons)==0:
-			btn.set_sensitive(0)
 	def _add_colour(self):
 		if self.custom_colours.x!=2:
 			self.custom_colours.buttons.append(Gtk.ColorButton())
@@ -315,6 +309,11 @@ class Animations(Main):
 			if self.custom_colours.y==4:
 				self.custom_colours.y=0
 				self.custom_colours.x+=1
+	def _on_remove(self, btn):
+		self._add_colour_btn.set_sensitive(1)
+		self._remove_colour()
+		if len(self.custom_colours.buttons)==0:
+			btn.set_sensitive(0)
 	def _on_add(self, btn_self, btn):
 		btn.set_sensitive(1)
 		if self.custom_colours.x==2:
@@ -323,6 +322,19 @@ class Animations(Main):
 	def _on_marquee_select(self, top, btn):
 		self.length_scale.set_visible(btn.get_active())
 		top.builder.get_object("animations_directions").set_visible(btn.get_active())
+	def _on_apply(self, top):
+		top.mode = self.get_opts()[0]
+		top.set_led(*self.get_colours())
+	def get_colours(self):
+		colours = []
+		for button in self.custom_colours.buttons:
+			colour = []
+			for ind, rgb_channel in enumerate(button.get_rgba()):
+				if ind !=3:
+					rgb_channel = int(rgb_channel*255)
+					colour.append(rgb_channel)
+			colours.append(colour)
+		return(colours)
 	def get_opts(self):
 		backwards= 0
 		length = int(self.length_scale.get_value())
@@ -342,19 +354,6 @@ class Animations(Main):
 				else:
 					mode = "covering-backwards-marquee" #the only mode that doesn't prefix "backwards-"
 		return(mode, length, backwards)
-	def get_colours(self):
-		colours = []
-		for button in self.custom_colours.buttons:
-			colour = []
-			for ind, rgb_channel in enumerate(button.get_rgba()):
-				if ind !=3:
-					rgb_channel = int(rgb_channel*255)
-					colour.append(rgb_channel)
-			colours.append(colour)
-		return(colours)
-	def _on_apply(self, top):
-		top.mode = self.get_opts()[0]
-		top.set_led(*self.get_colours())
 	def set_opts(self, colours, mode, length, backwards):
 		def setColours():
 			buttons_len = len(self.custom_colours.buttons)
@@ -405,9 +404,9 @@ class Profiles(Main):
 		self.remove_btn.connect("clicked", self._remove)
 		self.exit_btn.connect("clicked", lambda _: self._exit(top))
 
-		self.refresh_saves()
+		self._refresh_saves()
 
-	def refresh_saves(self):
+	def _refresh_saves(self):
 		for child in self.lb.get_children():
 			self.lb.remove(child)
 		try:
@@ -425,8 +424,6 @@ class Profiles(Main):
 				self.remove_btn.set_sensitive(1)
 		else:
 			self.load_btn.set_sensitive(0)
-	def show(self):
-		self.window.show()
 	def _save(self, top):
 		self.save_dialog.show()
 		def save():
@@ -435,7 +432,7 @@ class Profiles(Main):
 			with open("saved_configurations.json", "w") as f:
 				dump(self.saves, f)
 				self.save_dialog.hide()
-			self.refresh_saves()
+			self._refresh_saves()
 			self.dialog_save.disconnect(dialog_save_handler_id)
 			self.remove_btn.set_sensitive(1)
 			self.load_btn.set_sensitive(1)
@@ -463,13 +460,30 @@ class Profiles(Main):
 		with open("saved_configurations.json", "w") as f:
 			dump(self.saves, f)
 		self.window.hide()
+	def show(self):
+		self.window.show()
 
 
 class CopyPopover(Main):
 	def __init__(self, top):
-		self.popover = top.builder.get_object("copy_popover")
 		self._lb = top.builder.get_object("copy_dialog_lb")
 		self._lb.handler_id = self._lb.connect("row-selected", lambda _, row: self._on_select(top, row))
+		self.popover = top.builder.get_object("copy_popover")
+	def _on_select(self, top, row):
+		if row!=None:
+			if row.get_child().get_text() in list(top.devices.keys()): #lazy evaluation stops AttributeError
+				self._lb.unselect_row(row)
+			else:
+				self._copy(top)
+				self.popover.hide()
+	def _copy(self, top):
+		selected_row = self._lb.get_selected_row()
+		for ind, pos in enumerate(self.devices.keys()):
+			if selected_row.get_index() < pos:
+				device = list(self.devices.values())[ind-1]
+				top.data[top.device][top.channel] = top.data[device][selected_row.get_child().get_text()]
+				break
+		top.update_page()
 	def show(self, top):
 		def addRow(text):
 			label = Gtk.Label()
@@ -487,21 +501,6 @@ class CopyPopover(Main):
 				addRow(channel)
 				pos+=1
 		self.devices[pos+1] = list(self.devices.values())[-1]
-	def _on_select(self, top, row):
-		if row!=None:
-			if row.get_child().get_text() in list(top.devices.keys()): #lazy evaluation stops AttributeError
-				self._lb.unselect_row(row)
-			else:
-				self._copy(top)
-				self.popover.hide()
-	def _copy(self, top):
-		selected_row = self._lb.get_selected_row()
-		for ind, pos in enumerate(self.devices.keys()):
-			if selected_row.get_index() < pos:
-				device = list(self.devices.values())[ind-1]
-				top.data[top.device][top.channel] = top.data[device][selected_row.get_child().get_text()]
-				break
-		top.update_page()
 
 
 if __name__ == "__main__":
