@@ -15,7 +15,8 @@ Features include:
 - The ability to save profiles for later use
 - Lightweight and easy to use
 
-##Screenshots
+## Screenshots
+
 ![per_led](screenshots/per_led.png)
 ![animations](screenshots/animations.png)
 ![preset_animations](screenshots/preset_animations.png)
