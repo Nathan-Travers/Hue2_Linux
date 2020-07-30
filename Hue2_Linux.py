@@ -34,6 +34,8 @@ class Main:
 		def copy_channel_popover(_):
 			self.pages["copy_menu"].show(self)
 		def on_mode_page_select(scrl_wndw):
+			if scrl_wndw == None:
+				return
 			viewport = scrl_wndw.get_child()
 			lb_row = viewport.get_child().get_focus_child()
 			if lb_row.get_child().get_text()=="Preset animations":
