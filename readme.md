@@ -16,6 +16,6 @@ Features include:
 - Lightweight and easy to use
 
 ##Screenshots
-[per_led](screenshots/per_led.png)
-[animations](screenshots/animations.png)
-[preset_animations](screenshots/preset_animations.png)
+![per_led](screenshots/per_led.png)
+![animations](screenshots/animations.png)
+![preset_animations](screenshots/preset_animations.png)
