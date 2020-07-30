@@ -7,7 +7,7 @@ from math import ceil
 from json import dump, load
 from copy import deepcopy
 from subprocess import check_output
-
+	
 class Main:
 	def __init__(self):
 		self.builder = Gtk.Builder()
@@ -74,12 +74,12 @@ class Main:
 			self.devices[device_name] = {"device": device,
  						     "version": device_info[0][1],
 						     "channels": {}}
+			self.data[device_name] = {}
 			device_channels = self.devices[device_name]["channels"]
 			for line in device_info[1:]:
 				channel = line[0][:5].lower().replace(" ","")
 				if channel not in device_channels:
 					device_channels[channel] = 0
-					self.data[device_name] = {}
 					self.data[device_name][channel] = {
 						"per_led": {
 							"colours":[],
