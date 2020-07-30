@@ -6,6 +6,7 @@ from liquidctl import driver
 from math import ceil
 from json import dump, load
 from copy import deepcopy
+from subprocess import check_output
 
 class Main:
 	def __init__(self):
@@ -17,6 +18,9 @@ class Main:
 		profiles_btn = self.builder.get_object("profiles_btn")
 		copy_channel_btn = self.builder.get_object("copy_channel")
 		device_combo_box = self.builder.get_object("device")
+		mode_page_selector = self.builder.get_object("mode_page_selector")
+		su_error = self.builder.get_object("su_error")
+		su_error_exit_btn = self.builder.get_object("su_error_exit")
 		self._device_channel_combo_box = self.builder.get_object("device_channel")
 		self._device_entry = self.builder.get_object("device_entry")
 		self._device_channel_entry = self.builder.get_object("device_channel_entry")
@@ -29,12 +33,21 @@ class Main:
 			self.pages["profiles"].show()
 		def copy_channel_popover(_):
 			self.pages["copy_menu"].show(self)
+		def on_mode_page_select(scrl_wndw):
+			viewport = scrl_wndw.get_child()
+			lb_row = viewport.get_child().get_focus_child()
+			if lb_row.get_child().get_text()=="Preset animations":
+				copy_channel_btn.set_visible(0)
+			else:
+				copy_channel_btn.set_visible(1)
 
 		window.connect("delete-event", Gtk.main_quit)
 		refresh_btn.connect("clicked", lambda _: self._refresh_devices())
 		profiles_btn.connect("clicked", profiles_popup)
 		copy_channel_btn.connect("clicked", copy_channel_popover)
 		device_combo_box.connect("changed", self._on_device_change)
+		mode_page_selector.connect("set-focus-child", lambda _, scrl_wndw: on_mode_page_select(scrl_wndw))
+		su_error_exit_btn.connect("clicked", Gtk.main_quit)
 		self._device_channel_combo_box_handler_id = self._device_channel_combo_box.connect("changed", self._on_device_channel_change)
 
 		self.pages={"per_led": PerLed(self),
@@ -46,7 +59,10 @@ class Main:
 		self._speeds = ["slowest","slower","normal","faster","fastest"]
 		self.mode = "super-fixed"
 
-		self._refresh_devices()
+		if check_output("whoami")==b"root\n":
+			self._refresh_devices()
+		else:
+			su_error.show()
 		window.show()
 	def _get_devices(self):
 		for device in driver.find_liquidctl_devices():
@@ -63,16 +79,16 @@ class Main:
 					device_channels[channel] = 0
 					self.data[device_name] = {}
 					self.data[device_name][channel] = {
-					"per_led": {
-						"colours":[],
-						"group_size":1,
-						"speed":3.0,
-						"breathing":0},
-					"animations": {
-						"colours":[],
-						"mode":"fading",
-						"length":3.0,
-						"backwards":0}}
+						"per_led": {
+							"colours":[],
+							"group_size":1,
+							"speed":3.0,
+							"breathing":0},
+						"animations": {
+							"colours":[],
+							"mode":"fading",
+							"length":3.0,
+							"backwards":0}}
 				length = int(line[1][-6:-3])
 				if length == 300:
 					device_channels[channel] += 10
@@ -80,7 +96,8 @@ class Main:
 					device_channels[channel] += 8
 
 	def _refresh_devices(self):
-		self.devices, self.data={}, {}
+		self.devices = {}
+		self.data = {}
 		self._device_list.clear()
 		self._device_entry.set_text("")
 		self._device_channel_entry.set_text("")
@@ -278,6 +295,7 @@ class Animations(Main):
 		self.backwards_btn = top.builder.get_object("animations_direction_b")
 		self.length_scale = top.builder.get_object("length_scale")
 		self._length = top.builder.get_object("length")
+
 
 		self._remove_colour_btn.connect("clicked", self._on_remove)
 		self._add_colour_btn.connect("clicked", lambda btn: self._on_add(btn, self._remove_colour_btn))
