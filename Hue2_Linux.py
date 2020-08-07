@@ -482,8 +482,6 @@ class Profiles(Main):
 		self.window.hide()
 	def show(self):
 		self.window.show()
-
-
 class CopyPopover(Main):
 	def __init__(self, top):
 		self._lb = top.builder.get_object("copy_dialog_lb")
