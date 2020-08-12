@@ -7,11 +7,12 @@ from math import ceil
 from json import dump, load
 from copy import deepcopy
 from subprocess import check_output
-	
+from os.path import join
+
 class Main:
-	def __init__(self):
+	def __init__(self, file_):
 		self.builder = Gtk.Builder()
-		self.builder.add_from_file("Hue2_Linux_GUI.glade")
+		self.builder.add_from_file(file_)
 
 		window = self.builder.get_object("window")
 		refresh_btn = self.builder.get_object("refresh")
@@ -79,10 +80,10 @@ class Main:
 			for line in device_info[1:]:
 				channel = line[0][:5].lower().replace(" ","")
 				if channel not in device_channels:
-					device_channels[channel] = 0
+					device_channels[channel] = []
 					self.data[device_name][channel] = {
 						"per_led": {
-							"colours":[],
+							"colours":[[255]*3]*40,
 							"group_size":1,
 							"speed":3.0,
 							"breathing":0},
@@ -93,9 +94,13 @@ class Main:
 							"backwards":0}}
 				length = int(line[1][-6:-3])
 				if length == 300:
-					device_channels[channel] += 10
+					device_channels[channel].append(10)
 				elif length == 250:
-					device_channels[channel] += 8
+					device_channels[channel].append(8)
+			for ind in range(len(device_channels)):
+				prev = list(device_channels.keys())[ind]
+				while len(device_channels[prev])!=4:
+					device_channels[prev].append(0)
 
 	def _refresh_devices(self):
 		self.devices = {}
@@ -131,7 +136,6 @@ class Main:
 		self._save_device_state()
 		def updateChannels():
 			self._device_channel_list.clear()
-
 			device = combo_box.get_child().get_text()
 			if device!="": #edgecase on refresh
 				self.channels = self.devices[device]["channels"]
@@ -140,16 +144,13 @@ class Main:
 					self._device_channel_list.append([channel])
 				self.channel=channel_names[0]
 				self._device_channel_entry.set_text(self.channel)
-			self.device = device
-			self.update_page()
+				self.device = device
 		updateChannels()
+		self.update_page()
 
-		for btn in self.pages["per_led"].led_buttons:
-			btn.set_rgba(Gdk.RGBA(1,1,1,1))
 		for button in self._btns_to_disable:
 			button.set_sensitive(1)
 		self._device_channel_combo_box_handler_id = self._device_channel_combo_box.connect("changed", self._on_device_channel_change)
-		self._on_device_channel_change(self._device_channel_combo_box)
 	def _on_device_channel_change(self, combo_box):
 		self._save_device_state()
 		self.channel = combo_box.get_child().get_text()
@@ -159,16 +160,12 @@ class Main:
 		self.pages["animations"].set_opts(*animations_page_data)
 		self.pages["per_led"].set_opts(self, *per_led_page_data)
 	def set_led(self, *colours, speed=2, backwards=0, sync=0):
-		_colours=[]
-		for colour in colours:
-			for _ in range(self.pages["per_led"].group_size):
-				_colours.append(colour)
 		speed=self._speeds[int(self.speed.get_value())-1]
 		if sync==0:
-			self.devices[self.device]["device"].set_color(self.channel, self.mode, _colours, speed=speed)
+			self.devices[self.device]["device"].set_color(self.channel, self.mode, colours, speed=speed)
 		else:
 			for channel in self.channels:
-				self.devices[self.device]["device"].set_color(channel, self.mode, _colours, speed=speed)
+				self.devices[self.device]["device"].set_color(channel, self.mode, colours, speed=speed)
 
 class Presets(Main):
 	def __init__(self, top):
@@ -198,30 +195,28 @@ class PerLed(Main):
 
 		self.name = "per_led"
 		self.group_size = 1
-		self.led_buttons = []
-		self._led_len = (0,0)
-		self._x = -1
-		self._y =  0
+		self.led_strip_lens = []
+		self._led_grid_rows = [[],[],[],[]]
 	def _update_led_grid(self):
-		self._led_len = (self._led_len[1], ceil(self.channel_len/self.group_size))
-		if self._led_len[1]<self._led_len[0]:
-			for btn in self.led_buttons[:self._led_len[1]-1:-1]:
-				btn.destroy()
-				del self.led_buttons[-1]
-				self._x-=1
-				if self._x==-1:
-					self._y-=1
-					self._x=7
-		elif self._led_len[1]>self._led_len[0]:
-			for led in range(self._led_len[1]-self._led_len[0]):
-				self.led_buttons.append(Gtk.ColorButton())
-				self._x+=1
-				if self._x==8:
-					self._y+=1
-					self._x=0
-				self.led_buttons[-1].set_rgba(Gdk.RGBA(1,1,1,1))
-				self.led_grid.attach(self.led_buttons[-1],self._x,self._y,1,1)
-				self.led_buttons[-1].show()
+		row = -1
+		for led_strip_len in self.led_strip_lens:
+			row+=1
+			row_len=len(self._led_grid_rows[row])
+			new_row_len=ceil(led_strip_len/self.group_size)
+			if new_row_len!=row_len: #check equal first for fewer comparisons
+				if new_row_len>row_len:
+					for led_count, led in enumerate(range(new_row_len-row_len)):
+						btn = Gtk.ColorButton()
+						self._led_grid_rows[row].append(btn)
+						btn.set_rgba(Gdk.RGBA(1,1,1,1))
+						self.led_grid.attach(btn,(row_len+led_count),row,1,1)
+						btn.show()
+				else:
+					for btn in self._led_grid_rows[row][:new_row_len:-1]:
+						btn.destroy()
+						del self._led_grid_rows[row][-1]
+					self._led_grid_rows[row][-1].destroy()
+					del self._led_grid_rows[row][-1]
 	def _on_breathing_cb_toggle(self, top, cb):
 		if cb.get_active() == 1:
 			top.mode = "super-breathing"
@@ -251,8 +246,8 @@ class PerLed(Main):
 				buffer += letter
 		try:
 			buffer_int = int(buffer)
-			if buffer_int > self.channel_len:
-				buffer = str(self.channel_len)
+			if buffer_int > 10:
+				buffer = "10"
 			elif len(buffer)>2:
 				buffer = buffer[:2]
 			elif buffer_int!=0:
@@ -267,21 +262,22 @@ class PerLed(Main):
 		top.set_led(*self.get_colours())
 	def get_colours(self):
 		colours = []
-		for button in self.led_buttons:
+		for button in [led for row in self._led_grid_rows for led in row]:
 			colour = []
 			for rgb_channel in list(button.get_rgba())[:3]:
 				rgb_channel = int(rgb_channel*255)
 				colour.append(rgb_channel)
-			colours.append(colour)
+			for _ in range(self.group_size):
+				colours.append(colour)
 		return(colours)
 	def set_opts(self, top, colours, group_size, speed, breathing):
-		for button, colour in zip(self.led_buttons, colours):
+		self.led_strip_lens = top.channels[top.channel]
+		self._update_led_grid()
+		for button, colour in zip([led for row in self._led_grid_rows for led in row], colours):
 			colour_float=[]
 			for channel in colour:
 				colour_float.append(channel/255)
 			button.set_rgba(Gdk.RGBA(*colour_float))
-		self.channel_len = top.channels[top.channel]
-		self._update_led_grid()
 		self._group_size_entry.set_text(str(group_size))
 		self.grouping_cb.set_active((group_size>1))
 		self.breathing_cb.set_active(breathing)
@@ -522,5 +518,11 @@ class CopyPopover(Main):
 
 
 if __name__ == "__main__":
-	main = Main()
+	file_ = "Hue2_Linux_GUI.glade"
+	try: #for pyinstaller compiled exe
+		from sys import _MEIPASS
+		file_ = (join(_MEIPASS, "glade/Hue2_Linux_GUI.glade"))
+	except ImportError:
+		pass
+	main = Main(file_)
 	Gtk.main()

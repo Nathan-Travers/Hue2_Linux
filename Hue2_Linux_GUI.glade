@@ -79,7 +79,7 @@
         <property name="can_focus">False</property>
         <child>
           <object class="GtkStack" id="mode_pages">
-            <property name="width_request">400</property>
+            <property name="width_request">500</property>
             <property name="height_request">225</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -89,13 +89,14 @@
                 <property name="can_focus">False</property>
                 <child>
                   <object class="GtkEntry" id="group_size">
+                    <property name="width_request">200</property>
                     <property name="can_focus">True</property>
                     <property name="tooltip_text" translatable="yes">Led group size</property>
                     <property name="input_purpose">number</property>
                     <signal name="changed" handler="onGroupSizeChanged" swapped="no"/>
                   </object>
                   <packing>
-                    <property name="x">120</property>
+                    <property name="x">110</property>
                     <property name="y">155</property>
                   </packing>
                 </child>
@@ -151,20 +152,20 @@
                 <child>
                   <object class="GtkButton" id="per_led_apply">
                     <property name="label" translatable="yes">Apply</property>
-                    <property name="width_request">100</property>
+                    <property name="width_request">150</property>
                     <property name="height_request">55</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
                   </object>
                   <packing>
-                    <property name="x">295</property>
+                    <property name="x">330</property>
                     <property name="y">155</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkScale" id="breathing_speed_scale">
-                    <property name="width_request">150</property>
+                    <property name="width_request">200</property>
                     <property name="can_focus">True</property>
                     <property name="tooltip_text" translatable="yes">Speed</property>
                     <property name="adjustment">speed</property>
@@ -173,7 +174,7 @@
                     <property name="value_pos">left</property>
                   </object>
                   <packing>
-                    <property name="x">130</property>
+                    <property name="x">110</property>
                     <property name="y">185</property>
                   </packing>
                 </child>
@@ -189,7 +190,7 @@
                 <property name="can_focus">False</property>
                 <child>
                   <object class="GtkScale">
-                    <property name="width_request">150</property>
+                    <property name="width_request">200</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="tooltip_text" translatable="yes">Speed</property>
@@ -240,13 +241,13 @@
                     </child>
                   </object>
                   <packing>
-                    <property name="x">215</property>
+                    <property name="x">280</property>
                     <property name="y">190</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkButtonBox">
-                    <property name="width_request">400</property>
+                    <property name="width_request">500</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="layout_style">expand</property>
@@ -298,10 +299,11 @@
                 </child>
                 <child>
                   <object class="GtkButtonBox" id="modes">
+                    <property name="width_request">500</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="homogeneous">True</property>
-                    <property name="layout_style">start</property>
+                    <property name="layout_style">expand</property>
                     <child>
                       <object class="GtkRadioButton" id="animations_mode_rb">
                         <property name="label" translatable="yes">Fading</property>
@@ -368,7 +370,7 @@
                 </child>
                 <child>
                   <object class="GtkGrid" id="custom_colours">
-                    <property name="width_request">400</property>
+                    <property name="width_request">500</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="row_homogeneous">True</property>
@@ -407,7 +409,7 @@
                 </child>
                 <child>
                   <object class="GtkScale" id="length_scale">
-                    <property name="width_request">150</property>
+                    <property name="width_request">200</property>
                     <property name="can_focus">True</property>
                     <property name="tooltip_text" translatable="yes">Marquee length</property>
                     <property name="adjustment">length</property>
@@ -433,7 +435,7 @@
                 <property name="can_focus">False</property>
                 <child>
                   <object class="GtkScale">
-                    <property name="width_request">150</property>
+                    <property name="width_request">200</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="tooltip_text" translatable="yes">Speed</property>
@@ -485,14 +487,14 @@
                     </child>
                   </object>
                   <packing>
-                    <property name="x">215</property>
+                    <property name="x">275</property>
                     <property name="y">190</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkButton" id="presets_apply">
                     <property name="label" translatable="yes">Apply</property>
-                    <property name="width_request">400</property>
+                    <property name="width_request">500</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
@@ -504,7 +506,7 @@
                 </child>
                 <child>
                   <object class="GtkListBox" id="presets_menu">
-                    <property name="width_request">400</property>
+                    <property name="width_request">500</property>
                     <property name="height_request">140</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
@@ -590,7 +592,7 @@
         <child>
           <object class="GtkStackSidebar" id="mode_page_selector">
             <property name="width_request">100</property>
-            <property name="height_request">160</property>
+            <property name="height_request">225</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="vexpand">False</property>
@@ -603,7 +605,7 @@
         <child>
           <object class="GtkComboBox" id="device_channel">
             <property name="name">Device</property>
-            <property name="width_request">100</property>
+            <property name="width_request">200</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="model">device_channel_liststore</property>
@@ -619,7 +621,7 @@
             </child>
           </object>
           <packing>
-            <property name="x">245</property>
+            <property name="x">280</property>
             <property name="y">20</property>
           </packing>
         </child>
@@ -631,14 +633,14 @@
             <property name="image">image5</property>
           </object>
           <packing>
-            <property name="x">200</property>
+            <property name="x">230</property>
             <property name="y">20</property>
           </packing>
         </child>
         <child>
           <object class="GtkComboBox" id="device">
             <property name="name">Device</property>
-            <property name="width_request">190</property>
+            <property name="width_request">230</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="model">device_liststore</property>
@@ -660,36 +662,36 @@
         <child>
           <object class="GtkButton" id="profiles_btn">
             <property name="label" translatable="yes">Profiles</property>
-            <property name="width_request">90</property>
+            <property name="width_request">100</property>
             <property name="height_request">40</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
           </object>
           <packing>
-            <property name="x">450</property>
+            <property name="x">530</property>
             <property name="y">20</property>
           </packing>
         </child>
         <child>
           <object class="GtkMenuButton" id="copy_channel">
-            <property name="width_request">100</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="focus_on_click">False</property>
             <property name="receives_default">True</property>
+            <property name="tooltip_text" translatable="yes">Copy other channel</property>
             <property name="popover">copy_popover</property>
             <child>
-              <object class="GtkLabel">
+              <object class="GtkImage">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Copy other channel</property>
+                <property name="icon_name">edit-copy</property>
               </object>
             </child>
           </object>
           <packing>
-            <property name="x">245</property>
-            <property name="y">47</property>
+            <property name="x">480</property>
+            <property name="y">20</property>
           </packing>
         </child>
       </object>
