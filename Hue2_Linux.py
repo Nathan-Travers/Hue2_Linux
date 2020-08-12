@@ -518,11 +518,5 @@ class CopyPopover(Main):
 
 
 if __name__ == "__main__":
-	file_ = "Hue2_Linux_GUI.glade"
-	try: #for pyinstaller compiled exe
-		from sys import _MEIPASS
-		file_ = (join(_MEIPASS, "glade/Hue2_Linux_GUI.glade"))
-	except ImportError:
-		pass
-	main = Main(file_)
+	main = Main("Hue2_Linux_GUI.glade")
 	Gtk.main()
