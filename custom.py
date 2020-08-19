@@ -89,34 +89,57 @@ class Ambient():
         self.vertical_led_len = vertical_led_len
         self.horizontal_led_len = horizontal_led_len
         self.width, self.height=ImageGrab.grab().size
- #       bottom = ImageGrab.grab(bbox=(height-1,0,width,1))
-#        right = ImageGrab.grab(bbox=(width-1,0,1,height))
-#        bottom_np = np.array(bottom)
-#        right_np = np.array(right)
-#        for y in range(0,width,int(width/horizontal_led_len)):
- #           print(bottom_np[0,y])
-  #      for x in range(0,height,int(height/vertical_led_len)):
-   #         print(right_np[x])
+
     def __next__(self):
         from PIL import ImageGrab
         import numpy as np
+
         top = ImageGrab.grab(bbox=(0,0,self.width,1))
+        bottom = ImageGrab.grab(bbox=(0,self.height-1,self.width,self.height))
         left = ImageGrab.grab(bbox=(0,0,1,self.height))
+        right = ImageGrab.grab(bbox=(self.width-1,0,self.width,self.height))
         top_np = np.array(top)
         left_np = np.array(left)
-        colours=[]
-        led_gap = self.height//self.vertical_led_len
-        for led_pos in range(0,self.height,led_gap):
-            r,g,b=0,0,0
-            for _ in range(led_pos,led_pos+led_gap,led_gap//10)[:-1]:
-                pixel=list(left_np[led_pos,0])
-                r+=pixel[0]
-                g+=pixel[1]
-                b+=pixel[2]
-            colours.insert(0, [r//10,g//10,b//10])
-        for y in range(0,self.width,int(self.width/self.horizontal_led_len)):
-            colours.append(list(top_np[0,y]))
-        return(colours)
+        bottom_np = np.array(bottom)
+        right_np = np.array(right)
+
+        left,right,top,bottom=[],[],[],[]
+        sampling=10
+        vertical_led_gap = self.height//self.vertical_led_len
+        horizontal_led_gap = self.width//self.horizontal_led_len
+
+        for led_pos in range(0,self.height,vertical_led_gap):
+            l_r, l_g, l_b = 0,0,0
+            r_r, r_g, r_b = 0,0,0
+            for _ in range(led_pos,led_pos+vertical_led_gap,vertical_led_gap//sampling)[:-1]:
+                l_pixel=list(left_np[led_pos,0])
+                r_pixel=list(right_np[led_pos,0])
+                l_r+=l_pixel[0]
+                l_g+=l_pixel[1]
+                l_b+=l_pixel[2]
+                r_r+=r_pixel[0]
+                r_g+=r_pixel[1]
+                r_b+=r_pixel[2]
+            left.insert(0, [l_r//sampling,l_g//sampling,l_b//sampling])
+            right.insert(0, [r_r//sampling,r_g//sampling,r_b//sampling])
+            
+        for led_pos in range(0,self.width,horizontal_led_gap):
+            t_r, t_g, t_b = 0,0,0
+            b_r, b_g, b_b = 0,0,0
+            for _ in range(led_pos,led_pos+horizontal_led_gap,horizontal_led_gap//sampling)[:-1]:
+                t_pixel=list(top_np[0,led_pos])
+                b_pixel=list(bottom_np[0,led_pos])
+                t_r+=t_pixel[0]
+                t_g+=t_pixel[1]
+                t_b+=t_pixel[2]
+                b_r+=b_pixel[0]
+                b_g+=b_pixel[1]
+                b_b+=b_pixel[2]
+            top.append([t_r//sampling,t_g//sampling,t_b//sampling])
+            bottom.append([b_r//sampling,b_g//sampling,b_b//sampling])
+        left.extend(top)
+        bottom.extend(right)
+        return((left,bottom))
 
 if __name__=="__main__":
     from liquidctl import driver
@@ -128,10 +151,15 @@ if __name__=="__main__":
     a= Ambient(10,16)
     while a:
         sleep(0.01)
-        devices[0].set_color("led1","super-fixed",next(a))
-#    all_colours = Marquee(26, 4, [0,0,0], [[255,0,0]], number_of_marquees=3, spacing=10)# .06 speed
-#    all_colours = Gradient(26, 12, [[255,0,0], [0,0,255], [0,255,0]])# .01 speed
-#    while 1:
-#        for colours in all_colours:
-#            sleep(.01)
-#            devices[0].set_color("led1", "super-fixed", colours)
+        c,c1=next(a)
+        devices[0].set_color("led1","super-fixed",c)
+        devices[0].set_color("led2","super-fixed",c1)
+#    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06 speed
+#    all_colours = Gradient(26, 12, [[255,0,0], [0,0,255]])# .01 speed
+"""    while 1:
+        for colours in all_colours:
+            sleep(.03)
+            devices[0].set_color("led1", "super-fixed", colours)
+            sleep(.03)
+            devices[0].set_color("led2", "super-fixed", colours)
+"""
