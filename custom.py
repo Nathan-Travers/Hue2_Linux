@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from copy import deepcopy
+from copy import copy, deepcopy
 
 class Marquee():
     def __init__(self, led_len, marquee_len, background_colour, marquee_colours, number_of_marquees=1, spacing=0):
@@ -34,55 +34,6 @@ class Marquee():
     def __iter__(self):
         return(iter(self.colour_iter))
 
-class Gradient():
-    def __init__(self, led_len, gradient, colours, smooth=1):
-        if smooth==1:
-            colours.append(colours[0])
-        self.colours=[]
-        colours_buffer = [colours[0]]*led_len
-        r,g,b = colours[0]
-        ind = 1
-        counter = 0
-        while 1:
-            fin=1
-            counter+=1
-            n_colour = colours[ind]
-            if r!=n_colour[0]:
-                fin=0
-                if r<n_colour[0]:
-                    r+=1
-                else:
-                    r-=1
-            if g!=n_colour[1]:
-                fin=0
-                if g<n_colour[1]:
-                    g+=1
-                else:
-                    g-=1
-            if b!=n_colour[2]:
-                fin=0
-                if b<n_colour[2]:
-                    b+=1
-                else:
-                    b-=1
-
-            if counter==gradient:
-                colours_buffer.insert(0, [r,g,b])
-                del colours_buffer[-1]
-                counter=0
-                if colours[0]!=colours_buffer[-1]:
-                    self.colours.append(deepcopy(colours_buffer))
-            if fin==1:
-                ind+=1
-                if ind==len(colours):
-                    for colour in self.colours[0][::-1]:
-                        colours_buffer.insert(0, colour)
-                        del colours_buffer[-1]
-                        self.colours.append(deepcopy(colours_buffer))
-                    break
-    def __iter__(self):
-        return(iter(self.colours))
-
 class Ambient():
     def __init__(self, vertical_led_len, horizontal_led_len):
         from PIL import ImageGrab
@@ -94,6 +45,7 @@ class Ambient():
         from PIL import ImageGrab
         import numpy as np
 
+	#bbox=(from_x,from_y,to_x,to_y) aka (x,y) to (x1,y1)
         top = ImageGrab.grab(bbox=(0,0,self.width,1))
         bottom = ImageGrab.grab(bbox=(0,self.height-1,self.width,self.height))
         left = ImageGrab.grab(bbox=(0,0,1,self.height))
@@ -122,7 +74,7 @@ class Ambient():
                 r_b+=r_pixel[2]
             left.insert(0, [l_r//sampling,l_g//sampling,l_b//sampling])
             right.insert(0, [r_r//sampling,r_g//sampling,r_b//sampling])
-            
+
         for led_pos in range(0,self.width,horizontal_led_gap):
             t_r, t_g, t_b = 0,0,0
             b_r, b_g, b_b = 0,0,0
@@ -141,6 +93,36 @@ class Ambient():
         bottom.extend(right)
         return((left,bottom))
 
+class Gradient():
+    def __init__(self, led_len):
+        self._led_len = led_len
+
+    def generate(self, colours, step=1, smooth=1):
+        if smooth == 1:
+            colours.append(copy(colours[0]))
+
+        self._gradient_colours = []
+        current_colour = colours[0]
+        for next_colour in colours:
+            while next_colour != current_colour:
+                for channel, channel_new in zip(current_colour, next_colour):
+                    if channel < channel_new:
+                        channel += step
+                    elif channel > channel_new:
+                        channel -= step
+                    current_colour.append(channel)
+                del current_colour[:3]
+                self._gradient_colours.append(deepcopy([current_colour] * self._led_len))
+
+        print(f"Gradient {' > '.join(str(colour) for colour in colours)} generated.")
+
+    def run(self, device, delay=.03, channels=["led1", "led2"]):
+        while 1:
+            for colours in self._gradient_colours:
+                for channel in channels:
+                    sleep(delay)
+                    device.set_color(channel, "super-fixed", colours)
+
 if __name__=="__main__":
     from liquidctl import driver
     from time import sleep
@@ -148,18 +130,13 @@ if __name__=="__main__":
     for device in driver.find_liquidctl_devices():
         device.connect()
         devices.append(device)
-    a= Ambient(10,16)
-    while a:
-        sleep(0.01)
-        c,c1=next(a)
-        devices[0].set_color("led1","super-fixed",c)
-        devices[0].set_color("led2","super-fixed",c1)
+#    a= Ambient(10,16)
+#    while a:
+#        sleep(0.01)
+#        c,c1=next(a)
+#        devices[0].set_color("led1","super-fixed",c)
+#        devices[0].set_color("led2","super-fixed",c1)
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06 speed
-#    all_colours = Gradient(26, 12, [[255,0,0], [0,0,255]])# .01 speed
-"""    while 1:
-        for colours in all_colours:
-            sleep(.03)
-            devices[0].set_color("led1", "super-fixed", colours)
-            sleep(.03)
-            devices[0].set_color("led2", "super-fixed", colours)
-"""
+    grad = Gradient(26)
+    grad.generate([[255,0,0], [0,255,0], [0,0,255]])
+    grad.run(devices[0])
