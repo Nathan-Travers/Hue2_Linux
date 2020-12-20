@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from copy import copy, deepcopy
+from copy import deepcopy
 
 class Marquee():
     def __init__(self, led_len, marquee_len, background_colour, marquee_colours, number_of_marquees=1, spacing=0):
@@ -97,35 +97,76 @@ class Gradient():
     def __init__(self, led_len):
         self._led_len = led_len
 
-    def generate(self, colours, step=1, smooth=1):
+    def generate(self, colours, mode="normal", step=1, smooth=1):
         if smooth == 1:
-            colours.append(copy(colours[0]))
+            colours.append(deepcopy(colours[0]))
+        elif smooth == 2:
+            colours.extend(deepcopy(colours[-2::-1]))
 
         self._gradient_colours = []
+        if mode == "wave":
+            step = 10 #will mess with default wave step value later
+            self._gradient_colours.append([[0,0,0]] * self._led_len)
+
         current_colour = colours[0]
         for next_colour in colours:
             while next_colour != current_colour:
                 for channel, channel_new in zip(current_colour, next_colour):
                     if channel < channel_new:
                         channel += step
+                        #if no multiple of step is equal to the difference of current and next colour, current will never become equal
+                        if channel > channel_new: #stepped over new value
+                            channel = channel_new
                     elif channel > channel_new:
                         channel -= step
+                        if channel < channel_new:
+                            channel = channel_new
                     current_colour.append(channel)
                 del current_colour[:3]
-                self._gradient_colours.append(deepcopy([current_colour] * self._led_len))
 
-        print(f"Gradient {' > '.join(str(colour) for colour in colours)} generated.")
+                if mode == "normal":
+                    self._gradient_colours.append([deepcopy(current_colour)] * self._led_len)
+                else: #wave is only other mode atm
+                    self._gradient_colours.append([*self._gradient_colours[-1][1:], deepcopy(current_colour)])
+
+        if mode == "wave":
+            self._gradient_colours = [self._gradient_colours[:self._led_len], self._gradient_colours[self._led_len:]] #split into beginning and main loop
+
+            #smoothing for continuous main loop
+            last_colours = deepcopy(self._gradient_colours[1][-1])
+            for index, _ in enumerate(last_colours):
+                del last_colours[0]
+                last_colours.append(deepcopy(self._gradient_colours[1][0][index]))
+                self._gradient_colours[1].append(deepcopy(last_colours))
+            
+        print(f"Gradient {' > '.join(str(colour) for colour in colours)} generated with mode: {mode}.")
 
     def run(self, device, delay=.03, channels=["led1", "led2"]):
-        while 1:
-            for colours in self._gradient_colours:
-                for channel in channels:
-                    sleep(delay)
-                    device.set_color(channel, "super-fixed", colours)
+        self.run = 1
+        def set_colours(colours):
+            for channel in channels:
+                sleep(delay)
+                device.set_color(channel, "super-fixed", colours)
+        def run_():
+            if len(self._gradient_colours) == 2: #beginning
+                for colours in self._gradient_colours[0]:
+                    set_colours(colours)
+            while 1: #main loop
+                for colours in self._gradient_colours[-1]:
+                    if self.run == 0:
+                        exit()
+                    set_colours(colours)
+
+        print(f"Running gradient with {delay * 1000}ms delay")
+        self._thread_run = Thread(target = run_)
+        self._thread_run.start()
+        input("Enter to stop")
+        self.run = 0
 
 if __name__=="__main__":
     from liquidctl import driver
     from time import sleep
+    from threading import Thread
     devices=[]
     for device in driver.find_liquidctl_devices():
         device.connect()
@@ -138,5 +179,5 @@ if __name__=="__main__":
 #        devices[0].set_color("led2","super-fixed",c1)
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06 speed
     grad = Gradient(26)
-    grad.generate([[255,0,0], [0,255,0], [0,0,255]])
-    grad.run(devices[0])
+    grad.generate([[255,0,0], [0,255,0], [0,0,255]], mode="wave")
+    grad.run(devices[0], delay = float(input("Delay: "))/1000)
