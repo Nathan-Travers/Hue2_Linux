@@ -36,17 +36,62 @@ class Marquee():
 
 class Ambient():
     def __init__(self, vertical_led_len, horizontal_led_len):
-        from PIL import ImageGrab
+        from mss import mss
+        import numpy as np
+        self.np = np
         self.vertical_led_len = vertical_led_len
         self.horizontal_led_len = horizontal_led_len
-        self.width, self.height=ImageGrab.grab().size
+        self.mss_obj = mss()
+        self.main_monitor = self.mss_obj.monitors[1]
+        self.width, self.height = list(self.main_monitor.values())[2:]
+
+    def _get_rgb(self, np_array): #To make it easy to change below slice, if format ever changes
+        return list(np_array)[2::-1]
 
     def __next__(self):
-        from PIL import ImageGrab
-        import numpy as np
+        screen_np = self.np.array(self.mss_obj.grab(monitor=self.main_monitor)) #BGRA format !
+        top_np = screen_np[0, :]
+        bottom_np = screen_np[self.height-1, :]
+        left_np = screen_np[:, 0]
+        right_np = screen_np[:, self.width-1]
+        top, bottom, left, right = [], [], [], []
+
+        vertical_led_gap = self.height // self.vertical_led_len
+        horizontal_led_gap = self.width // self.horizontal_led_len
+
+        for led_pos in range(0, self.height, vertical_led_gap):
+            left.insert(0, self._get_rgb(left_np[led_pos]))
+            right.insert(0, self._get_rgb(right_np[led_pos]))
+
+        for led_pos in range(0, self.width, horizontal_led_gap):
+            top.append(self._get_rgb(top_np[led_pos]))
+            bottom.append(self._get_rgb(bottom_np[led_pos]))
+
+        left.extend(top)
+        bottom.extend(right)
+
+        return (left, bottom)
+
+    def run(self, device, channels=["led1", "led2"]):
+        self.run = 1
+        def set_colours(channel_colours):
+            for channel, colours in zip(channels, channel_colours):
+                sleep(0.01)
+                device.set_color(channel, "super-fixed", colours)
+        def run_():
+            while self.run == 1:
+                sleep(0.01)
+                channel_colours = next(self)
+                set_colours(channel_colours)
+        print(f"Running ambient mode")
+        self._thread_run = Thread(target = run_)
+        self._thread_run.start()
+        input("Enter to stop")
+        self.run = 0
+        self.mss_obj.close()
 
 	#bbox=(from_x,from_y,to_x,to_y) aka (x,y) to (x1,y1)
-        top = ImageGrab.grab(bbox=(0,0,self.width,1))
+"""        top = ImageGrab.grab(bbox=(0,0,self.width,1))
         bottom = ImageGrab.grab(bbox=(0,self.height-1,self.width,self.height))
         left = ImageGrab.grab(bbox=(0,0,1,self.height))
         right = ImageGrab.grab(bbox=(self.width-1,0,self.width,self.height))
@@ -92,6 +137,7 @@ class Ambient():
         left.extend(top)
         bottom.extend(right)
         return((left,bottom))
+"""
 
 class Gradient():
     def __init__(self, led_len):
@@ -171,13 +217,9 @@ if __name__=="__main__":
     for device in driver.find_liquidctl_devices():
         device.connect()
         devices.append(device)
-#    a= Ambient(10,16)
-#    while a:
-#        sleep(0.01)
-#        c,c1=next(a)
-#        devices[0].set_color("led1","super-fixed",c)
-#        devices[0].set_color("led2","super-fixed",c1)
+    amb = Ambient(10,16)
+    amb.run(devices[0])
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06 speed
-    grad = Gradient(26)
+"""    grad = Gradient(26)
     grad.generate([[255,0,0], [0,255,0], [0,0,255]], mode="wave")
-    grad.run(devices[0], delay = float(input("Delay: "))/1000)
+    grad.run(devices[0], delay = float(input("Delay: "))/1000)"""
