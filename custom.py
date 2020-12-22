@@ -91,8 +91,12 @@ class Ambient():
         self.mss_obj.close()
 
 class Gradient():
-    def __init__(self, led_len):
-        self._led_len = led_len
+    def __init__(self, led_len, cross_channels=0):
+        self._cross_channels = cross_channels
+        if self._cross_channels == 0:
+            self._led_len = led_len
+        else:
+            self._led_len = led_len*2
 
     def generate(self, colours, mode="normal", step=1, smooth=1):
         if smooth == 1:
@@ -100,17 +104,18 @@ class Gradient():
         elif smooth == 2:
             colours.extend(deepcopy(colours[-2::-1]))
 
-        self._gradient_colours = []
+        self._gradient_colour_sets = []
         if mode == "wave":
-            step = 10 #will mess with default wave step value later
-            self._gradient_colours.append([[0,0,0]] * self._led_len)
+            if step == 1:
+                step = 10 #will mess with default wave step value later
+            self._gradient_colour_sets.append([[0,0,0]] * self._led_len)
 
         current_colour = colours[0]
         for next_colour in colours:
             while next_colour != current_colour:
                 for channel, channel_new in zip(current_colour, next_colour):
                     if channel < channel_new:
-                        channel += step
+                        channel += step #favour
                         #if no multiple of step is equal to the difference of current and next colour, current will never become equal
                         if channel > channel_new: #stepped over new value
                             channel = channel_new
@@ -122,34 +127,49 @@ class Gradient():
                 del current_colour[:3]
 
                 if mode == "normal":
-                    self._gradient_colours.append([deepcopy(current_colour)] * self._led_len)
+                    self._gradient_colour_sets.append([deepcopy(current_colour)] * self._led_len)
                 else: #wave is only other mode atm
-                    self._gradient_colours.append([*self._gradient_colours[-1][1:], deepcopy(current_colour)])
+#                    if reverse == True:
+                    #self._gradient_colour_sets.append([*self._gradient_colour_sets[-1][:1], deepcopy(current_colour)])
+                    self._gradient_colour_sets.append([deepcopy(current_colour), *self._gradient_colour_sets[-1][:-1]])
+
 
         if mode == "wave":
-            self._gradient_colours = [self._gradient_colours[:self._led_len], self._gradient_colours[self._led_len:]] #split into beginning and main loop
-
             #smoothing for continuous main loop
-            last_colours = deepcopy(self._gradient_colours[1][-1])
-            for index, _ in enumerate(last_colours):
-                del last_colours[0]
-                last_colours.append(deepcopy(self._gradient_colours[1][0][index]))
-                self._gradient_colours[1].append(deepcopy(last_colours))
-            
+            last_colours = deepcopy(self._gradient_colour_sets[-1])
+            first_colours = deepcopy(self._gradient_colour_sets[self._led_len]) #need to ensure gradient_colour_sets length >= led_len
+            for ind, _ in enumerate(last_colours):
+                #del last_colours[0]
+                #last_colours.append(first_colours[index])
+                del last_colours[-1]
+                last_colours.insert(0, first_colours[-(ind+1)])
+                self._gradient_colour_sets.append(deepcopy(last_colours))
+
+            if self._cross_channels == 1: #split gradient across channels
+                true_led_len = self._led_len // 2
+                for ind, colour_set in enumerate(self._gradient_colour_sets):
+                    self._gradient_colour_sets[ind] = [colour_set[:true_led_len], colour_set[true_led_len:]]
+
+            self._gradient_colour_sets = [self._gradient_colour_sets[:self._led_len], self._gradient_colour_sets[self._led_len:]] #split into beginning and main loop
+
         print(f"Gradient {' > '.join(str(colour) for colour in colours)} generated with mode: {mode}.")
 
     def run(self, device, delay=.03, channels=["led1", "led2"]):
         self.run = 1
         def set_colours(colours):
-            for channel in channels:
-                sleep(delay)
-                device.set_color(channel, "super-fixed", colours)
+            sleep(delay)
+            if self._cross_channels == 0:
+                for channel in channels:
+                    device.set_color(channel, "super-fixed", colours)
+            else:
+                for channel, channel_colours in zip(channels, colours):
+                    device.set_color(channel, "super-fixed", channel_colours[::1-(2*(channel=="led2"))])
         def run_():
-            if len(self._gradient_colours) == 2: #beginning
-                for colours in self._gradient_colours[0]:
+            if len(self._gradient_colour_sets) == 2: #beginning
+                for colours in self._gradient_colour_sets[0]:
                     set_colours(colours)
             while 1: #main loop
-                for colours in self._gradient_colours[-1]:
+                for colours in self._gradient_colour_sets[-1]: #access last index, will be main regardless of presence of beginning
                     if self.run == 0:
                         exit()
                     set_colours(colours)
@@ -168,9 +188,16 @@ if __name__=="__main__":
     for device in driver.find_liquidctl_devices():
         device.connect()
         devices.append(device)
-    amb = Ambient(10,16)
-    amb.run(devices[0])
-#    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06 speed
-"""    grad = Gradient(26)
-    grad.generate([[255,0,0], [0,255,0], [0,0,255]], mode="wave")
-    grad.run(devices[0], delay = float(input("Delay: "))/1000)"""
+    def ambi():
+        amb = Ambient(10,16)
+        amb.run(devices[0])
+#    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06
+    def gradi():
+        grad = Gradient(26, cross_channels=1)
+        grad.generate([[255,0,0], [255,0,255], [0,0,255], [255,0,255]], mode="wave", step=int(input("Step: ")))
+        grad.run(devices[0], delay = float(input("Delay: "))/1000)
+
+    if bool(input("enter nothing for gradient, anything for ambient"))==0:
+        gradi()
+    else:
+        ambi()
