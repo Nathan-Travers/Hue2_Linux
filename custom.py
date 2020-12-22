@@ -90,55 +90,6 @@ class Ambient():
         self.run = 0
         self.mss_obj.close()
 
-	#bbox=(from_x,from_y,to_x,to_y) aka (x,y) to (x1,y1)
-"""        top = ImageGrab.grab(bbox=(0,0,self.width,1))
-        bottom = ImageGrab.grab(bbox=(0,self.height-1,self.width,self.height))
-        left = ImageGrab.grab(bbox=(0,0,1,self.height))
-        right = ImageGrab.grab(bbox=(self.width-1,0,self.width,self.height))
-        top_np = np.array(top)
-        left_np = np.array(left)
-        bottom_np = np.array(bottom)
-        right_np = np.array(right)
-
-        left,right,top,bottom=[],[],[],[]
-        sampling=10
-        vertical_led_gap = self.height//self.vertical_led_len
-        horizontal_led_gap = self.width//self.horizontal_led_len
-
-        for led_pos in range(0,self.height,vertical_led_gap):
-            l_r, l_g, l_b = 0,0,0
-            r_r, r_g, r_b = 0,0,0
-            for _ in range(led_pos,led_pos+vertical_led_gap,vertical_led_gap//sampling)[:-1]:
-                l_pixel=list(left_np[led_pos,0])
-                r_pixel=list(right_np[led_pos,0])
-                l_r+=l_pixel[0]
-                l_g+=l_pixel[1]
-                l_b+=l_pixel[2]
-                r_r+=r_pixel[0]
-                r_g+=r_pixel[1]
-                r_b+=r_pixel[2]
-            left.insert(0, [l_r//sampling,l_g//sampling,l_b//sampling])
-            right.insert(0, [r_r//sampling,r_g//sampling,r_b//sampling])
-
-        for led_pos in range(0,self.width,horizontal_led_gap):
-            t_r, t_g, t_b = 0,0,0
-            b_r, b_g, b_b = 0,0,0
-            for _ in range(led_pos,led_pos+horizontal_led_gap,horizontal_led_gap//sampling)[:-1]:
-                t_pixel=list(top_np[0,led_pos])
-                b_pixel=list(bottom_np[0,led_pos])
-                t_r+=t_pixel[0]
-                t_g+=t_pixel[1]
-                t_b+=t_pixel[2]
-                b_r+=b_pixel[0]
-                b_g+=b_pixel[1]
-                b_b+=b_pixel[2]
-            top.append([t_r//sampling,t_g//sampling,t_b//sampling])
-            bottom.append([b_r//sampling,b_g//sampling,b_b//sampling])
-        left.extend(top)
-        bottom.extend(right)
-        return((left,bottom))
-"""
-
 class Gradient():
     def __init__(self, led_len):
         self._led_len = led_len
