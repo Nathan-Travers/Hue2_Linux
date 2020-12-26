@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from copy import deepcopy
+from math import ceil
 
 class Marquee():
     def __init__(self, led_len, marquee_len, background_colour, marquee_colours, number_of_marquees=1, spacing=0):
@@ -98,7 +99,7 @@ class Gradient():
         else:
             self._led_len = led_len*2
 
-    def generate(self, colours, mode="normal", step=1, smooth=1):
+    def generate(self, colours, mode="normal", step=1, smooth=1, even_distribution=True):
         if smooth == 1:
             colours.append(deepcopy(colours[0]))
         elif smooth == 2:
@@ -110,17 +111,37 @@ class Gradient():
                 step = 10 #will mess with default wave step value later
             self._gradient_colour_sets.append([[0,0,0]] * self._led_len)
 
+        if even_distribution == True:
+            diffs = {}
+            diff_largest = 0
+            for index, colour in enumerate(colours[:-1]):
+                diffs[str(colour)] = {}
+                for pos, channels in enumerate(zip(colour, colours[index + 1])):
+                    channel, channel_next = channels
+                    diff = channel - channel_next
+                    if diff < 0:
+                        diff = diff * -1
+                    if diff > diff_largest:
+                        diff_largest = diff
+                    diffs[str(colour)][pos] = diff
+
         current_colour = colours[0]
+        step_compensated = step
         for next_colour in colours:
+            diff_current = diffs[str(current_colour)]
             while next_colour != current_colour:
-                for channel, channel_new in zip(current_colour, next_colour):
+                for index, channels in enumerate(zip(current_colour, next_colour)):
+                    channel, channel_new = channels
+                    if even_distribution == True:
+                        diff = diff_current[index]
+                        step_compensated = ceil((diff / diff_largest) * step)
                     if channel < channel_new:
-                        channel += step #favour
+                        channel += step_compensated #favour
                         #if no multiple of step is equal to the difference of current and next colour, current will never become equal
                         if channel > channel_new: #stepped over new value
                             channel = channel_new
                     elif channel > channel_new:
-                        channel -= step
+                        channel -= step_compensated
                         if channel < channel_new:
                             channel = channel_new
                     current_colour.append(channel)
@@ -193,10 +214,9 @@ if __name__=="__main__":
         amb.run(devices[0])
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06
     def gradi():
-        grad = Gradient(26, cross_channels=1)
-        grad.generate([[255,0,0], [255,0,255], [0,0,255], [255,0,255]], mode="wave", step=int(input("Step: ")))
+        grad = Gradient(26, cross_channels=0)
+        grad.generate([[255,0,50], [255,0,255], [50, 0, 255], [0, 200, 255]], mode="wave", step=int(input("Step: ")))
         grad.run(devices[0], delay = float(input("Delay: "))/1000)
-
     if bool(input("enter nothing for gradient, anything for ambient"))==0:
         gradi()
     else:
