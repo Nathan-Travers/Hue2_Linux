@@ -85,8 +85,8 @@ class Ambient():
                     sampled_b += self._get_rgb(bottom_np[led_pos_sampling])
                 sampled_t = (sampled_t/horizontal_led_gap).astype(int).tolist()
                 sampled_b = (sampled_b/horizontal_led_gap).astype(int).tolist()
-                top.insert(0, sampled_t)
-                bottom.insert(0, sampled_b)
+                top.append(sampled_t)
+                bottom.append(sampled_b)
             else:
                 top.append(self._get_rgb(top_np[led_pos]))
                 bottom.append(self._get_rgb(bottom_np[led_pos]))
