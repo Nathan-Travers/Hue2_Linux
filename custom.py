@@ -36,12 +36,13 @@ class Marquee():
         return(iter(self.colour_iter))
 
 class Ambient():
-    def __init__(self, vertical_led_len, horizontal_led_len):
+    def __init__(self, vertical_led_len, horizontal_led_len, sampling=False):
         from mss import mss
         import numpy as np
         self.np = np
         self.vertical_led_len = vertical_led_len
         self.horizontal_led_len = horizontal_led_len
+        self._sampling = sampling
         self.mss_obj = mss()
         self.main_monitor = self.mss_obj.monitors[1]
         self.width, self.height = list(self.main_monitor.values())[2:]
@@ -61,12 +62,34 @@ class Ambient():
         horizontal_led_gap = self.width // self.horizontal_led_len
 
         for led_pos in range(0, self.height, vertical_led_gap):
-            left.insert(0, self._get_rgb(left_np[led_pos]))
-            right.insert(0, self._get_rgb(right_np[led_pos]))
+            if self._sampling == True:
+                sampled_l = self.np.array([0,0,0])
+                sampled_r = self.np.array([0,0,0])
+                for led_pos_sampling in range(led_pos, led_pos + vertical_led_gap):
+                    sampled_l += self._get_rgb(left_np[led_pos_sampling])
+                    sampled_r += self._get_rgb(right_np[led_pos_sampling])
+                sampled_l = (sampled_l/vertical_led_gap).astype(int).tolist()
+                sampled_r = (sampled_r/vertical_led_gap).astype(int).tolist()
+                left.insert(0, sampled_l)
+                right.insert(0, sampled_r)
+            else:
+                left.insert(0, self._get_rgb(left_np[led_pos]))
+                right.insert(0, self._get_rgb(right_np[led_pos]))
 
         for led_pos in range(0, self.width, horizontal_led_gap):
-            top.append(self._get_rgb(top_np[led_pos]))
-            bottom.append(self._get_rgb(bottom_np[led_pos]))
+            if self._sampling == True:
+                sampled_t = self.np.array([0,0,0])
+                sampled_b = self.np.array([0,0,0])
+                for led_pos_sampling in range(led_pos, led_pos + horizontal_led_gap):
+                    sampled_t += self._get_rgb(top_np[led_pos_sampling])
+                    sampled_b += self._get_rgb(bottom_np[led_pos_sampling])
+                sampled_t = (sampled_t/horizontal_led_gap).astype(int).tolist()
+                sampled_b = (sampled_b/horizontal_led_gap).astype(int).tolist()
+                top.insert(0, sampled_t)
+                bottom.insert(0, sampled_b)
+            else:
+                top.append(self._get_rgb(top_np[led_pos]))
+                bottom.append(self._get_rgb(bottom_np[led_pos]))
 
         left.extend(top)
         bottom.extend(right)
@@ -210,7 +233,7 @@ if __name__=="__main__":
         device.connect()
         devices.append(device)
     def ambi():
-        amb = Ambient(10,16)
+        amb = Ambient(10,16, sampling=True)
         amb.run(devices[0])
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06
     def gradi():
