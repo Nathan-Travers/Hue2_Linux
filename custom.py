@@ -36,13 +36,14 @@ class Marquee():
         return(iter(self.colour_iter))
 
 class Ambient():
-    def __init__(self, vertical_led_len, horizontal_led_len, sampling=False):
+    def __init__(self, vertical_led_len, horizontal_led_len, sampling=False, sampling_step=2):
         from mss import mss
         import numpy as np
         self.np = np
         self.vertical_led_len = vertical_led_len
         self.horizontal_led_len = horizontal_led_len
         self._sampling = sampling
+        self._sampling_step = sampling_step
         self.mss_obj = mss()
         self.main_monitor = self.mss_obj.monitors[1]
         self.width, self.height = list(self.main_monitor.values())[2:]
@@ -65,7 +66,7 @@ class Ambient():
             if self._sampling == True:
                 sampled_l = self.np.array([0,0,0])
                 sampled_r = self.np.array([0,0,0])
-                for led_pos_sampling in range(led_pos, led_pos + vertical_led_gap):
+                for led_pos_sampling in range(led_pos, led_pos + vertical_led_gap, self._sampling_step):
                     sampled_l += self._get_rgb(left_np[led_pos_sampling])
                     sampled_r += self._get_rgb(right_np[led_pos_sampling])
                 sampled_l = (sampled_l/vertical_led_gap).astype(int).tolist()
@@ -80,7 +81,7 @@ class Ambient():
             if self._sampling == True:
                 sampled_t = self.np.array([0,0,0])
                 sampled_b = self.np.array([0,0,0])
-                for led_pos_sampling in range(led_pos, led_pos + horizontal_led_gap):
+                for led_pos_sampling in range(led_pos, led_pos + horizontal_led_gap, self._sampling_step):
                     sampled_t += self._get_rgb(top_np[led_pos_sampling])
                     sampled_b += self._get_rgb(bottom_np[led_pos_sampling])
                 sampled_t = (sampled_t/horizontal_led_gap).astype(int).tolist()
