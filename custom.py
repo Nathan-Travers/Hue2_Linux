@@ -98,7 +98,7 @@ class Ambient():
                             else:
                                 sampled_dict[pixel] = 0
                     for sampled_dict in (sampled_l, sampled_r):
-                        most_freq_pixel_count = 0
+                        most_freq_pixel_count = -1
                         most_freq_pixel = ""
                         for pixel in list(sampled_dict.keys()):
                             if sampled_dict[pixel] > most_freq_pixel_count:
@@ -134,7 +134,7 @@ class Ambient():
                             else:
                                 sampled_dict[pixel] = 0
                     for sampled_dict in (sampled_t, sampled_b):
-                        most_freq_pixel_count = 0
+                        most_freq_pixel_count = -1
                         most_freq_pixel = ""
                         for pixel in list(sampled_dict.keys()):
                             if sampled_dict[pixel] > most_freq_pixel_count:
