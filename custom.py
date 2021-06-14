@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from copy import deepcopy
 from math import ceil
+from json import loads
 
 class Marquee():
     def __init__(self, led_len, marquee_len, background_colour, marquee_colours, number_of_marquees=1, spacing=0):
@@ -36,23 +37,35 @@ class Marquee():
         return(iter(self.colour_iter))
 
 class Ambient():
-    def __init__(self, vertical_led_len, horizontal_led_len, sampling=False, sampling_step=2):
+    def __init__(self, vertical_led_len, horizontal_led_len, sampling=False, sampling_step=2, sampling_weighted=False):
         from mss import mss
+        from mss.exception import ScreenShotError
         import numpy as np
         self.np = np
         self.vertical_led_len = vertical_led_len
         self.horizontal_led_len = horizontal_led_len
         self._sampling = sampling
         self._sampling_step = sampling_step
+        self._sampling_weighted = sampling_weighted
         self.mss_obj = mss()
         self.main_monitor = self.mss_obj.monitors[1]
         self.width, self.height = list(self.main_monitor.values())[2:]
+        self._mss_ScreenShotError = ScreenShotError
 
     def _get_rgb(self, np_array): #To make it easy to change below slice, if format ever changes
         return list(np_array)[2::-1]
 
     def __next__(self):
-        screen_np = self.np.array(self.mss_obj.grab(monitor=self.main_monitor)) #BGRA format !
+        screen_np = []
+        while type(screen_np) == list:
+                try:
+                        screen_np = self.np.array(self.mss_obj.grab(monitor=self.main_monitor)) #BGRA format !
+                except self._mss_ScreenShotError: #when display sleeps, like after locking screen, XGetImage() fails
+                        screen_np = []
+                        print("Failed screen shot")
+                        self.mss_obj.close()
+                        input("Sleeping, press enter to restart\n")
+                        self.mss_obj = mss()
         top_np = screen_np[0, :]
         bottom_np = screen_np[self.height-1, :]
         left_np = screen_np[:, 0]
@@ -64,30 +77,72 @@ class Ambient():
 
         for led_pos in range(0, self.height, vertical_led_gap):
             if self._sampling == True:
-                sampled_l = self.np.array([0,0,0])
-                sampled_r = self.np.array([0,0,0])
-                for led_pos_sampling in range(led_pos, led_pos + vertical_led_gap, self._sampling_step):
-                    sampled_l += self._get_rgb(left_np[led_pos_sampling])
-                    sampled_r += self._get_rgb(right_np[led_pos_sampling])
-                sampled_l = (sampled_l/vertical_led_gap).astype(int).tolist()
-                sampled_r = (sampled_r/vertical_led_gap).astype(int).tolist()
-                left.insert(0, sampled_l)
-                right.insert(0, sampled_r)
+                if self._sampling_weighted == False:
+                    sampled_l = self.np.array([0,0,0])
+                    sampled_r = self.np.array([0,0,0])
+                    for led_pos_sampling in range(led_pos, led_pos + vertical_led_gap, self._sampling_step):
+                        sampled_l += self._get_rgb(left_np[led_pos_sampling])
+                        sampled_r += self._get_rgb(right_np[led_pos_sampling])
+                    sampled_l = (sampled_l/vertical_led_gap).astype(int).tolist()
+                    sampled_r = (sampled_r/vertical_led_gap).astype(int).tolist()
+                    left.insert(0, sampled_l)
+                    right.insert(0, sampled_r)
+                else:
+                    sampled_l = {}
+                    sampled_r = {}
+                    for led_pos_sampling in range(led_pos, led_pos + vertical_led_gap, self._sampling_step):
+                        for (sampled_dict, led_arr) in zip((sampled_l, sampled_r), (left_np, right_np)):
+                            pixel = str(self._get_rgb(led_arr[led_pos_sampling]))
+                            if pixel in sampled_dict:
+                                sampled_dict[pixel] += 1
+                            else:
+                                sampled_dict[pixel] = 0
+                    for sampled_dict in (sampled_l, sampled_r):
+                        most_freq_pixel_count = 0
+                        most_freq_pixel = ""
+                        for pixel in list(sampled_dict.keys()):
+                            if sampled_dict[pixel] > most_freq_pixel_count:
+                                most_freq_pixel_count = sampled_dict[pixel]
+                                most_freq_pixel = pixel
+                        sampled_dict["mf"] = loads(most_freq_pixel)
+                    left.insert(0, sampled_l["mf"])
+                    right.insert(0, sampled_r["mf"])
             else:
                 left.insert(0, self._get_rgb(left_np[led_pos]))
                 right.insert(0, self._get_rgb(right_np[led_pos]))
 
         for led_pos in range(0, self.width, horizontal_led_gap):
             if self._sampling == True:
-                sampled_t = self.np.array([0,0,0])
-                sampled_b = self.np.array([0,0,0])
-                for led_pos_sampling in range(led_pos, led_pos + horizontal_led_gap, self._sampling_step):
-                    sampled_t += self._get_rgb(top_np[led_pos_sampling])
-                    sampled_b += self._get_rgb(bottom_np[led_pos_sampling])
-                sampled_t = (sampled_t/horizontal_led_gap).astype(int).tolist()
-                sampled_b = (sampled_b/horizontal_led_gap).astype(int).tolist()
-                top.append(sampled_t)
-                bottom.append(sampled_b)
+                if self._sampling_weighted == False:
+                    sampled_t = self.np.array([0,0,0])
+                    sampled_b = self.np.array([0,0,0])
+                    for led_pos_sampling in range(led_pos, led_pos + horizontal_led_gap, self._sampling_step):
+                        sampled_t += self._get_rgb(top_np[led_pos_sampling])
+                        sampled_b += self._get_rgb(bottom_np[led_pos_sampling])
+                    sampled_t = (sampled_t/horizontal_led_gap).astype(int).tolist()
+                    sampled_b = (sampled_b/horizontal_led_gap).astype(int).tolist()
+                    top.append(sampled_t)
+                    bottom.append(sampled_b)
+                else:
+                    sampled_t = {}
+                    sampled_b = {}
+                    for led_pos_sampling in range(led_pos, led_pos + horizontal_led_gap, self._sampling_step):
+                        for sampled_dict, led_arr in zip((sampled_t, sampled_b), (top_np, bottom_np)):
+                            pixel = str(self._get_rgb(led_arr[led_pos_sampling]))
+                            if pixel in sampled_dict:
+                                sampled_dict[pixel] += 1
+                            else:
+                                sampled_dict[pixel] = 0
+                    for sampled_dict in (sampled_t, sampled_b):
+                        most_freq_pixel_count = 0
+                        most_freq_pixel = ""
+                        for pixel in list(sampled_dict.keys()):
+                            if sampled_dict[pixel] > most_freq_pixel_count:
+                                most_freq_pixel_count = sampled_dict[pixel]
+                                most_freq_pixel = pixel
+                        sampled_dict["mf"] = loads(most_freq_pixel)
+                    top.append(sampled_t["mf"])
+                    bottom.append(sampled_b["mf"])
             else:
                 top.append(self._get_rgb(top_np[led_pos]))
                 bottom.append(self._get_rgb(bottom_np[led_pos]))
@@ -108,6 +163,7 @@ class Ambient():
                 sleep(0.01)
                 channel_colours = next(self)
                 set_colours(channel_colours)
+            print(channel_colours)
         print(f"Running ambient mode")
         self._thread_run = Thread(target = run_)
         self._thread_run.start()
@@ -234,14 +290,14 @@ if __name__=="__main__":
         device.connect()
         devices.append(device)
     def ambi():
-        amb = Ambient(10,16, sampling=True)
+        amb = Ambient(10,16, sampling=True, sampling_weighted=True)
         amb.run(devices[0])
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06
     def gradi():
         grad = Gradient(26, cross_channels=0)
         grad.generate([[255,0,50], [255,0,255], [50, 0, 255], [0, 200, 255]], mode="wave", step=int(input("Step: ")))
         grad.run(devices[0], delay = float(input("Delay: "))/1000)
-    if bool(input("enter nothing for gradient, anything for ambient"))==0:
+    if bool(input("enter anything for gradient, nothing for ambient"))==1:
         gradi()
     else:
         ambi()
