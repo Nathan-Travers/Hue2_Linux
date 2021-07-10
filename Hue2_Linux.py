@@ -71,7 +71,7 @@ class Main:
 		for device in driver.find_liquidctl_devices():
 			device.connect()
 			device_info = device.initialize()
-			device_name = device.description.replace(" (experimental)", "")
+			device_name = device.description.replace(" (experimental)", "") #As of liquidctl:1.4.2, this no longer seems to contain "experimental" but I'll leave for compatibility
 			self.devices[device_name] = {"device": device,
  						     "version": device_info[0][1],
 						     "channels": {}}
@@ -92,11 +92,8 @@ class Main:
 							"mode":"fading",
 							"length":3.0,
 							"backwards":0}}
-				length = int(line[1][-6:-3])
-				if length == 300:
-					device_channels[channel].append(10)
-				elif length == 250:
-					device_channels[channel].append(8)
+				length = line[1].value * 2
+				device_channels[channel].append(length)
 			for ind in range(len(device_channels)):
 				prev = list(device_channels.keys())[ind]
 				while len(device_channels[prev])!=4:
