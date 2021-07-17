@@ -2,6 +2,7 @@
 from copy import deepcopy
 from math import ceil
 from json import loads
+from signal import signal, SIGINT
 
 class Marquee():
     def __init__(self, led_len, marquee_len, background_colour, marquee_colours, number_of_marquees=1, spacing=0):
@@ -62,10 +63,9 @@ class Ambient():
                         screen_np = self.np.array(self.mss_obj.grab(monitor=self.main_monitor)) #BGRA format !
                 except self._mss_ScreenShotError: #when display sleeps, like after locking screen, XGetImage() fails
                         screen_np = []
-                        print("Failed screen shot")
-                        self.mss_obj.close()
-                        input("Sleeping, press enter to restart\n")
-                        self.mss_obj = mss()
+                        input("Failed screen shot\nSleeping, press enter to restart\n")
+                        self.mss_obj.get_error_details() #Unless error details are get, mss will continue to raise error despite it being past
+                        print("Successfully continued")
         top_np = screen_np[0, :]
         bottom_np = screen_np[self.height-1, :]
         left_np = screen_np[:, 0]
@@ -152,6 +152,12 @@ class Ambient():
 
         return (left, bottom)
 
+    def _sigint_handler(self, sig, frame):
+        print("\nSIGINT received, exiting...")
+        self.run = 0
+        self.mss_obj.close() #still not sure this actually does anything
+        exit()
+
     def run(self, device, channels=["led1", "led2"]):
         self.run = 1
         def set_colours(channel_colours):
@@ -167,9 +173,8 @@ class Ambient():
         print(f"Running ambient mode")
         self._thread_run = Thread(target = run_)
         self._thread_run.start()
-        input("Enter to stop")
-        self.run = 0
-        self.mss_obj.close()
+        signal(SIGINT, self._sigint_handler)
+        self._thread_run.join()
 
 class Gradient():
     def __init__(self, led_len, cross_channels=0):
