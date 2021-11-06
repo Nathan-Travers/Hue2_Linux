@@ -184,7 +184,7 @@ class Gradient():
         else:
             self._led_len = led_len*2
 
-    def generate(self, colours, mode="normal", step=1, smooth=1, even_distribution=True):
+    def generate(self, colours, mode="normal", step=1, smooth=1, even_distribution=True, channel_size=3):
         if smooth == 1:
             colours.append(deepcopy(colours[0]))
         elif smooth == 2:
@@ -194,26 +194,27 @@ class Gradient():
         if mode == "wave":
             if step == 1:
                 step = 10 #will mess with default wave step value later
-            self._gradient_colour_sets.append([[0,0,0]] * self._led_len)
+            self._gradient_colour_sets.append([[0] * channel_size] * self._led_len)
 
         if even_distribution == True:
             diffs = {}
             diff_largest = 0
             for index, colour in enumerate(colours[:-1]):
-                diffs[str(colour)] = {}
-                for pos, channels in enumerate(zip(colour, colours[index + 1])):
+                colour_next = colours[index + 1]
+                colour_combo_name = str(colour) + str(colour_next)
+                diffs[colour_combo_name] = {}
+                for pos, channels in enumerate(zip(colour, colour_next)):
                     channel, channel_next = channels
-                    diff = channel - channel_next
-                    if diff < 0:
-                        diff = diff * -1
+                    diff = abs(channel - channel_next)
                     if diff > diff_largest:
                         diff_largest = diff
-                    diffs[str(colour)][pos] = diff
+                    diffs[colour_combo_name][pos] = diff
 
         current_colour = colours[0]
         step_compensated = step
-        for next_colour in colours:
-            diff_current = diffs[str(current_colour)]
+        for next_colour in colours[1:]:
+            colour_combo_name = str(current_colour) + str(next_colour)
+            diff_current = diffs[colour_combo_name]
             while next_colour != current_colour:
                 for index, channels in enumerate(zip(current_colour, next_colour)):
                     channel, channel_new = channels
@@ -230,7 +231,7 @@ class Gradient():
                         if channel < channel_new:
                             channel = channel_new
                     current_colour.append(channel)
-                del current_colour[:3]
+                del current_colour[:channel_size]
 
                 if mode == "normal":
                     self._gradient_colour_sets.append([deepcopy(current_colour)] * self._led_len)
@@ -286,6 +287,25 @@ class Gradient():
         input("Enter to stop")
         self.run = 0
 
+class Gradient_CMYK(Gradient):
+    def generate(self, colours, mode="normal", step=1, smooth=1, even_distribution=True):
+        super().generate(colours, mode=mode, step=step, smooth=smooth, even_distribution=even_distribution, channel_size=4)
+        self._gradient_colour_sets_rgb = []
+        for set_cmyk in self._gradient_colour_sets:
+            set_rgb = []
+            for arr_cmyk in set_cmyk:
+                arr_rgb = []
+                for colour_cmyk in arr_cmyk:
+                   colour_rgb = []
+                   channel_k = colour_cmyk[-1]
+                   for channel_cmy in colour_cmyk[:-1]:
+                       channel_rgb = ceil(255 * (1 - (channel_cmy / 100)) * (1 - (channel_k / 100)))
+                       colour_rgb.append(channel_rgb)
+                   arr_rgb.append(colour_rgb)
+                set_rgb.append(arr_rgb)
+            self._gradient_colour_sets_rgb.append(set_rgb)
+        self._gradient_colour_sets = self._gradient_colour_sets_rgb
+
 if __name__=="__main__":
     from liquidctl import driver
     from time import sleep
@@ -299,8 +319,9 @@ if __name__=="__main__":
         amb.run(devices[0])
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06
     def gradi():
-        grad = Gradient(26, cross_channels=0)
-        grad.generate([[255,0,50], [255,0,255], [50, 0, 255], [0, 200, 255]], mode="wave", step=int(input("Step: ")))
+        grad = Gradient_CMYK(26, cross_channels=0)
+#        grad.generate([[255,0,50], [255,0,255], [50, 0, 255], [0, 200, 255]], mode="wave", step=int(input("Step: ")))
+        grad.generate([[100,0,0,50], [100,100,0,50], [0,100,100,50], [0,0,100,50]], mode="wave", step=int(input("Step: ")))
         grad.run(devices[0], delay = float(input("Delay: "))/1000)
     if bool(input("enter anything for gradient, nothing for ambient"))==1:
         gradi()
