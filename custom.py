@@ -252,12 +252,14 @@ class Gradient():
                 last_colours.insert(0, first_colours[-(ind+1)])
                 self._gradient_colour_sets.append(deepcopy(last_colours))
 
-            if self._cross_channels == 1: #split gradient across channels
+            """if self._cross_channels == 1: #split gradient across channels
                 true_led_len = self._led_len // 2
                 for ind, colour_set in enumerate(self._gradient_colour_sets):
-                    self._gradient_colour_sets[ind] = [colour_set[:true_led_len], colour_set[true_led_len:]]
+                    self._gradient_colour_sets[ind] = [colour_set[:true_led_len], colour_set[true_led_len:]]"""
 
             self._gradient_colour_sets = [self._gradient_colour_sets[:self._led_len], self._gradient_colour_sets[self._led_len:]] #split into beginning and main loop
+        else:
+            self._gradient_colour_sets = [self._gradient_colour_sets]
 
         print(f"Gradient {' > '.join(str(colour) for colour in colours)} generated with mode: {mode}.")
 
@@ -269,8 +271,10 @@ class Gradient():
                 for channel in channels:
                     device.set_color(channel, "super-fixed", colours)
             else:
-                for channel, channel_colours in zip(channels, colours):
-                    device.set_color(channel, "super-fixed", channel_colours[::1-(2*(channel=="led2"))])
+                device.set_color("led1", "super-fixed", colours[:self._led_len//2])
+                device.set_color("led2", "super-fixed", colours[:self._led_len//2:-1])
+                #for channel, channel_colours in zip(channels, colours):
+                #    device.set_color(channel, "super-fixed", channel_colours[::1-(2*(channel=="led2"))])
         def run_():
             if len(self._gradient_colour_sets) == 2: #beginning
                 for colours in self._gradient_colour_sets[0]:
@@ -289,20 +293,21 @@ class Gradient():
 
 class Gradient_CMYK(Gradient):
     def generate(self, colours, mode="normal", step=1, smooth=1, even_distribution=True):
-        super().generate(colours, mode=mode, step=step, smooth=smooth, even_distribution=even_distribution, channel_size=4)
+        super().generate(colours, mode="wave", step=step, smooth=smooth, even_distribution=even_distribution, channel_size=4)
         self._gradient_colour_sets_rgb = []
         for set_cmyk in self._gradient_colour_sets:
             set_rgb = []
-            for arr_cmyk in set_cmyk:
-                arr_rgb = []
-                for colour_cmyk in arr_cmyk:
+            for step_cmyk in set_cmyk:
+                step_rgb = []
+                for colour_cmyk in step_cmyk:
                    colour_rgb = []
+#                   print(colour_cmyk)
                    channel_k = colour_cmyk[-1]
                    for channel_cmy in colour_cmyk[:-1]:
                        channel_rgb = ceil(255 * (1 - (channel_cmy / 100)) * (1 - (channel_k / 100)))
                        colour_rgb.append(channel_rgb)
-                   arr_rgb.append(colour_rgb)
-                set_rgb.append(arr_rgb)
+                   step_rgb.append(colour_rgb)
+                set_rgb.append(step_rgb)
             self._gradient_colour_sets_rgb.append(set_rgb)
         self._gradient_colour_sets = self._gradient_colour_sets_rgb
 
@@ -319,9 +324,9 @@ if __name__=="__main__":
         amb.run(devices[0])
 #    all_colours = Marquee(26, 4, [0,0,125], [[255,0,0]], number_of_marquees=3, spacing=10)# .06
     def gradi():
-        grad = Gradient_CMYK(26, cross_channels=0)
+        grad = Gradient_CMYK(26, cross_channels=1)
 #        grad.generate([[255,0,50], [255,0,255], [50, 0, 255], [0, 200, 255]], mode="wave", step=int(input("Step: ")))
-        grad.generate([[100,0,0,50], [100,100,0,50], [0,100,100,50], [0,0,100,50]], mode="wave", step=int(input("Step: ")))
+        grad.generate([[0,0,100,50], [100,0,100,50], [0,100,100,50]], mode="wave", step=int(input("Step: ")))
         grad.run(devices[0], delay = float(input("Delay: "))/1000)
     if bool(input("enter anything for gradient, nothing for ambient"))==1:
         gradi()
